@@ -153,11 +153,17 @@ AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioPr
     targetLUFSKnob.getSlider().setLookAndFeel(primaryLAF);
 
     // Toggle switches - styled as pill toggles with section colors
-    // Helper lambda to set LAF on switch and all its children (including the internal button)
+    // Helper lambda to set LAF on switch and all its children, and hide the label
     auto setSwitchLAF = [](gin::Switch& sw, juce::LookAndFeel* laf) {
         sw.setLookAndFeel(laf);
         for (int i = 0; i < sw.getNumChildComponents(); ++i)
-            sw.getChildComponent(i)->setLookAndFeel(laf);
+        {
+            auto* child = sw.getChildComponent(i);
+            child->setLookAndFeel(laf);
+            // Hide labels (first child is the name label in gin::Switch)
+            if (auto* label = dynamic_cast<juce::Label*>(child))
+                label->setVisible(false);
+        }
     };
 
     auto eqSwitchLAF = switchLAFs.add(new ToggleSwitchLookAndFeel(AutomasterColors::eqHPF));  // gray for filters

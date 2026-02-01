@@ -176,7 +176,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                  {10.0f, 1000.0f, 1.0f, 0.4f}, 100.0f,
                                  gin::SmoothingType(0.05f));
 
-    limiterBypass = addExtParam("limiterBypass", "Limiter Bypass", "Bypass", "",
+    limiterBypass = addExtParam("limiterBypass", "Limiter Bypass", "", "",
                                 {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                                 gin::SmoothingType(0.0f));
 
