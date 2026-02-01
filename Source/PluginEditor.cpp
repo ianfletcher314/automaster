@@ -1380,14 +1380,6 @@ void AutomasterAudioProcessorEditor::paintEQBandIndicators(juce::Graphics& g, ju
         auto gainArea = row2.removeFromLeft(kKnobSize);  // gain
         if (i < 3) row2.removeFromLeft(kGap * 2);
 
-        // Draw colored indicator dot above the band
-        auto color = AutomasterColors::getEQBandColor(i);
-        int dotX = bandArea.getX() + (bandArea.getWidth() + kGap + gainArea.getWidth()) / 2 - 4;
-        int dotY = bandArea.getY() - 10;
-
-        // Colored dot (no number label needed - knob colors indicate the band)
-        g.setColour(color);
-        g.fillEllipse((float)dotX, (float)dotY, 8.0f, 8.0f);
     }
 }
 
