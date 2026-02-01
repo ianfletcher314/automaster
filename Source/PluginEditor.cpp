@@ -17,8 +17,8 @@ namespace {
     constexpr int kKnobHeight = kKnobSize + kKnobLabelH;
 
     // Switches
-    constexpr int kSwitchWidth = 24;
-    constexpr int kSwitchHeight = 14;
+    constexpr int kSwitchWidth = 36;
+    constexpr int kSwitchHeight = 36;  // Need room for toggle (18px) + label below
 
     // Meters
     constexpr int kMeterWidth = 10;
