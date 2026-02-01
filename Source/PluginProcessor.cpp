@@ -41,7 +41,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                           {20.0f, 500.0f, 1.0f, 0.5f}, 30.0f,
                           gin::SmoothingType(0.05f));
 
-    hpfEnabled = addExtParam("hpfEnabled", "HPF Enabled", "On", "",
+    hpfEnabled = addExtParam("hpfEnabled", "HPF Enabled", "", "",
                              {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                              gin::SmoothingType(0.0f));
 
@@ -49,7 +49,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                           {5000.0f, 20000.0f, 1.0f, 0.5f}, 18000.0f,
                           gin::SmoothingType(0.05f));
 
-    lpfEnabled = addExtParam("lpfEnabled", "LPF Enabled", "On", "",
+    lpfEnabled = addExtParam("lpfEnabled", "LPF Enabled", "", "",
                              {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                              gin::SmoothingType(0.0f));
 
@@ -159,7 +159,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                {60.0f, 300.0f, 1.0f, 1.0f}, 120.0f,
                                gin::SmoothingType(0.05f));
 
-    monoBassEnabled = addExtParam("monoBassEnabled", "Mono Bass", "On", "",
+    monoBassEnabled = addExtParam("monoBassEnabled", "Mono Bass", "", "",
                                   {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                                   gin::SmoothingType(0.0f));
 
