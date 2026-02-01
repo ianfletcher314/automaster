@@ -45,11 +45,19 @@ namespace {
     constexpr int kLimiterMeterSectionW = kKnobSize * 3 + kSwitchWidth + 12;
 
     // Meter strip
-    constexpr int kMeterStripHeight = 60;
+    constexpr int kMeterStripHeight = 50;
 
-    // Window - compact, fits content
+    // Spectrum analyzer - BIG
+    constexpr int kSpectrumHeight = 280;
+
+    // Module rows - EQ/Comp need 2 rows of knobs, Stereo/Limiter only need 1
+    constexpr int kModuleRow1H = 134;  // label(16) + padding(4) + row1(56) + gap(2) + row2(56) = 134
+    constexpr int kModuleRow2H = 80;   // label(16) + padding(4) + row1(56) + extra(4) = 80
+
+    // Window - sized to fit content:
+    // Header(28) + Spectrum(280) + gap(8) + MeterStrip(50) + gap(8) + Row1(134) + gap(8) + Row2(80) + padding(6) = 602
     constexpr int kWindowWidth = 950;
-    constexpr int kWindowHeight = 360;
+    constexpr int kWindowHeight = 610;
 }
 
 AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioProcessor& p)
@@ -79,12 +87,38 @@ AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioPr
       limiterReleaseKnob(p.limiterRelease),
       limiterBypassSwitch(p.limiterBypass)
 {
+    // Create colored LookAndFeels for EQ knobs and apply them
+    auto lowShelfLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::eqLowShelf));
+    lowShelfFreqKnob.getSlider().setLookAndFeel(lowShelfLAF);
+    lowShelfGainKnob.getSlider().setLookAndFeel(lowShelfLAF);
+
+    auto highShelfLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::eqHighShelf));
+    highShelfFreqKnob.getSlider().setLookAndFeel(highShelfLAF);
+    highShelfGainKnob.getSlider().setLookAndFeel(highShelfLAF);
+
+    auto hpfLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::eqHPF));
+    hpfFreqKnob.getSlider().setLookAndFeel(hpfLAF);
+
+    auto lpfLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::eqLPF));
+    lpfFreqKnob.getSlider().setLookAndFeel(lpfLAF);
+
     for (int i = 0; i < 4; ++i)
     {
         bandFreqKnobs[i] = ownedKnobs.add(new gin::Knob(p.bandFreq[i]));
         bandGainKnobs[i] = ownedKnobs.add(new gin::Knob(p.bandGain[i]));
         bandQKnobs[i] = ownedKnobs.add(new gin::Knob(p.bandQ[i]));
+
+        // Create colored LookAndFeel for this band
+        auto bandLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::getEQBandColor(i)));
+        bandFreqKnobs[i]->getSlider().setLookAndFeel(bandLAF);
+        bandGainKnobs[i]->getSlider().setLookAndFeel(bandLAF);
+        bandQKnobs[i]->getSlider().setLookAndFeel(bandLAF);
     }
+
+    // Compressor knobs (orange)
+    auto compLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::compColor));
+    lowMidXoverKnob.getSlider().setLookAndFeel(compLAF);
+    midHighXoverKnob.getSlider().setLookAndFeel(compLAF);
 
     for (int i = 0; i < 3; ++i)
     {
@@ -93,13 +127,66 @@ AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioPr
         compAttackKnobs[i] = ownedKnobs.add(new gin::Knob(p.compAttack[i]));
         compReleaseKnobs[i] = ownedKnobs.add(new gin::Knob(p.compRelease[i]));
         compMakeupKnobs[i] = ownedKnobs.add(new gin::Knob(p.compMakeup[i]));
+
+        compThresholdKnobs[i]->getSlider().setLookAndFeel(compLAF);
+        compRatioKnobs[i]->getSlider().setLookAndFeel(compLAF);
+        compAttackKnobs[i]->getSlider().setLookAndFeel(compLAF);
+        compReleaseKnobs[i]->getSlider().setLookAndFeel(compLAF);
+        compMakeupKnobs[i]->getSlider().setLookAndFeel(compLAF);
     }
+
+    // Stereo knobs (purple)
+    auto stereoLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::stereoColor));
+    globalWidthKnob.getSlider().setLookAndFeel(stereoLAF);
+    lowWidthKnob.getSlider().setLookAndFeel(stereoLAF);
+    midWidthKnob.getSlider().setLookAndFeel(stereoLAF);
+    highWidthKnob.getSlider().setLookAndFeel(stereoLAF);
+    monoBassFreqKnob.getSlider().setLookAndFeel(stereoLAF);
+
+    // Limiter knobs (red)
+    auto limiterLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::limiterColor));
+    ceilingKnob.getSlider().setLookAndFeel(limiterLAF);
+    limiterReleaseKnob.getSlider().setLookAndFeel(limiterLAF);
+
+    // Target LUFS knob (primary cyan)
+    auto primaryLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::primary));
+    targetLUFSKnob.getSlider().setLookAndFeel(primaryLAF);
+
+    // Toggle switches - styled as pill toggles with section colors
+    // Helper lambda to set LAF on switch and all its children (including the internal button)
+    auto setSwitchLAF = [](gin::Switch& sw, juce::LookAndFeel* laf) {
+        sw.setLookAndFeel(laf);
+        for (int i = 0; i < sw.getNumChildComponents(); ++i)
+            sw.getChildComponent(i)->setLookAndFeel(laf);
+    };
+
+    auto eqSwitchLAF = switchLAFs.add(new ToggleSwitchLookAndFeel(AutomasterColors::eqHPF));  // gray for filters
+    setSwitchLAF(hpfEnableSwitch, eqSwitchLAF);
+    setSwitchLAF(lpfEnableSwitch, eqSwitchLAF);
+
+    auto eqBypassLAF = switchLAFs.add(new ToggleSwitchLookAndFeel(AutomasterColors::eqColor));
+    setSwitchLAF(eqBypassSwitch, eqBypassLAF);
+
+    auto compBypassLAF = switchLAFs.add(new ToggleSwitchLookAndFeel(AutomasterColors::compColor));
+    setSwitchLAF(compBypassSwitch, compBypassLAF);
+
+    auto stereoSwitchLAF = switchLAFs.add(new ToggleSwitchLookAndFeel(AutomasterColors::stereoColor));
+    setSwitchLAF(monoBassEnableSwitch, stereoSwitchLAF);
+    setSwitchLAF(stereoBypassSwitch, stereoSwitchLAF);
+
+    auto limiterBypassLAF = switchLAFs.add(new ToggleSwitchLookAndFeel(AutomasterColors::limiterColor));
+    setSwitchLAF(limiterBypassSwitch, limiterBypassLAF);
 
     setupTopBar();
     setupReferenceSection();
     setupModeSection();
     setupModulePanels();
     setupMeterSection();
+
+    // Spectrum analyzer
+    spectrumAnalyzer.setEQ(&proc.getMasteringChain().getEQ());
+    spectrumAnalyzer.setSampleRate(proc.getSampleRate());
+    addAndMakeVisible(spectrumAnalyzer);
 
     showModulePanel(ProcessingChainView::Module::EQ);
     addKeyListener(this);  // Listen for keys from all child components
@@ -109,7 +196,63 @@ AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioPr
     startTimerHz(30);
 }
 
-AutomasterAudioProcessorEditor::~AutomasterAudioProcessorEditor() {}
+AutomasterAudioProcessorEditor::~AutomasterAudioProcessorEditor()
+{
+    // Clear custom LookAndFeels before sliders are destroyed
+    // EQ section
+    lowShelfFreqKnob.getSlider().setLookAndFeel(nullptr);
+    lowShelfGainKnob.getSlider().setLookAndFeel(nullptr);
+    highShelfFreqKnob.getSlider().setLookAndFeel(nullptr);
+    highShelfGainKnob.getSlider().setLookAndFeel(nullptr);
+    hpfFreqKnob.getSlider().setLookAndFeel(nullptr);
+    lpfFreqKnob.getSlider().setLookAndFeel(nullptr);
+    for (int i = 0; i < 4; ++i)
+    {
+        if (bandFreqKnobs[i]) bandFreqKnobs[i]->getSlider().setLookAndFeel(nullptr);
+        if (bandGainKnobs[i]) bandGainKnobs[i]->getSlider().setLookAndFeel(nullptr);
+        if (bandQKnobs[i]) bandQKnobs[i]->getSlider().setLookAndFeel(nullptr);
+    }
+
+    // Compressor section
+    lowMidXoverKnob.getSlider().setLookAndFeel(nullptr);
+    midHighXoverKnob.getSlider().setLookAndFeel(nullptr);
+    for (int i = 0; i < 3; ++i)
+    {
+        if (compThresholdKnobs[i]) compThresholdKnobs[i]->getSlider().setLookAndFeel(nullptr);
+        if (compRatioKnobs[i]) compRatioKnobs[i]->getSlider().setLookAndFeel(nullptr);
+        if (compAttackKnobs[i]) compAttackKnobs[i]->getSlider().setLookAndFeel(nullptr);
+        if (compReleaseKnobs[i]) compReleaseKnobs[i]->getSlider().setLookAndFeel(nullptr);
+        if (compMakeupKnobs[i]) compMakeupKnobs[i]->getSlider().setLookAndFeel(nullptr);
+    }
+
+    // Stereo section
+    globalWidthKnob.getSlider().setLookAndFeel(nullptr);
+    lowWidthKnob.getSlider().setLookAndFeel(nullptr);
+    midWidthKnob.getSlider().setLookAndFeel(nullptr);
+    highWidthKnob.getSlider().setLookAndFeel(nullptr);
+    monoBassFreqKnob.getSlider().setLookAndFeel(nullptr);
+
+    // Limiter section
+    ceilingKnob.getSlider().setLookAndFeel(nullptr);
+    limiterReleaseKnob.getSlider().setLookAndFeel(nullptr);
+
+    // Target
+    targetLUFSKnob.getSlider().setLookAndFeel(nullptr);
+
+    // Switches - clear LAF on switch and all children
+    auto clearSwitchLAF = [](gin::Switch& sw) {
+        sw.setLookAndFeel(nullptr);
+        for (int i = 0; i < sw.getNumChildComponents(); ++i)
+            sw.getChildComponent(i)->setLookAndFeel(nullptr);
+    };
+    clearSwitchLAF(hpfEnableSwitch);
+    clearSwitchLAF(lpfEnableSwitch);
+    clearSwitchLAF(eqBypassSwitch);
+    clearSwitchLAF(compBypassSwitch);
+    clearSwitchLAF(monoBassEnableSwitch);
+    clearSwitchLAF(stereoBypassSwitch);
+    clearSwitchLAF(limiterBypassSwitch);
+}
 
 bool AutomasterAudioProcessorEditor::keyPressed(const juce::KeyPress& key, juce::Component*)
 {
@@ -196,7 +339,7 @@ void AutomasterAudioProcessorEditor::setupReferenceSection()
     loadRefButton.setButtonText("Load Ref");
     loadRefButton.onClick = [this]()
     {
-        auto chooser = std::make_unique<juce::FileChooser>(
+        fileChooser = std::make_unique<juce::FileChooser>(
             "Select Reference Track",
             juce::File::getSpecialLocation(juce::File::userMusicDirectory),
             "*.wav;*.aiff;*.mp3;*.flac");
@@ -204,7 +347,7 @@ void AutomasterAudioProcessorEditor::setupReferenceSection()
         auto chooserFlags = juce::FileBrowserComponent::openMode |
                             juce::FileBrowserComponent::canSelectFiles;
 
-        chooser->launchAsync(chooserFlags, [this](const juce::FileChooser& fc)
+        fileChooser->launchAsync(chooserFlags, [this](const juce::FileChooser& fc)
         {
             auto file = fc.getResult();
             if (file.existsAsFile())
@@ -433,17 +576,21 @@ void AutomasterAudioProcessorEditor::resized()
 
     layoutMetersVertical(meterSide);
 
-    // === METER STRIP at top (LUFS, correlation, comp GR, BIG limiter GR) ===
+    // === SPECTRUM ANALYZER at top (full width, shows EQ curve) ===
+    auto spectrumArea = bounds.removeFromTop(kSpectrumHeight);
+    spectrumAnalyzer.setBounds(spectrumArea);
+    bounds.removeFromTop(kSectionGap);
+
+    // === METER STRIP below spectrum (LUFS, correlation, comp GR, BIG limiter GR) ===
     auto meterStrip = bounds.removeFromTop(kMeterStripHeight);
     bounds.removeFromTop(kSectionGap);
 
     layoutMeterStrip(meterStrip);
 
-    // Split remaining area into 2 rows for modules
-    int rowH = (bounds.getHeight() - kModuleGap) / 2;
+    // Use the namespace constant for module row height
 
-    // === ROW 1: EQ and COMPRESSOR ===
-    auto row1 = bounds.removeFromTop(rowH);
+    // === ROW 1: EQ and COMPRESSOR (2 rows of knobs, needs more height) ===
+    auto row1 = bounds.removeFromTop(kModuleRow1H);
     bounds.removeFromTop(kModuleGap);
 
     int halfW = (row1.getWidth() - kSectionGap) / 2;
@@ -454,8 +601,8 @@ void AutomasterAudioProcessorEditor::resized()
     layoutEQAll(eqArea);
     layoutCompressorAll(compArea);
 
-    // === ROW 2: STEREO and LIMITER ===
-    auto row2 = bounds;
+    // === ROW 2: STEREO and LIMITER (1 row of knobs, compact) ===
+    auto row2 = bounds.removeFromTop(kModuleRow2H);
 
     auto stereoArea = row2.removeFromLeft(halfW);
     row2.removeFromLeft(kSectionGap);
@@ -1148,25 +1295,28 @@ void AutomasterAudioProcessorEditor::paintAllModules(juce::Graphics& g)
 
     bounds.removeFromRight(kSectionGap);
 
-    // Meter strip at top
+    // Spectrum analyzer area (painted by component itself)
+    bounds.removeFromTop(kSpectrumHeight);
+    bounds.removeFromTop(kSectionGap);
+
+    // Meter strip
     auto meterStrip = bounds.removeFromTop(kMeterStripHeight);
     g.setColour(juce::Colour(0xFF1e1e1e));
     g.fillRoundedRectangle(meterStrip.toFloat(), 4.0f);
 
     bounds.removeFromTop(kSectionGap);
 
-    int rowH = (bounds.getHeight() - kModuleGap) / 2;
     int halfW = (bounds.getWidth() - kSectionGap) / 2;
 
-    // Row 1
-    auto row1 = bounds.removeFromTop(rowH);
+    // Row 1 - EQ/Comp need more height for 2 rows of knobs
+    auto row1 = bounds.removeFromTop(kModuleRow1H);
     auto eqArea = row1.removeFromLeft(halfW);
     row1.removeFromLeft(kSectionGap);
     auto compArea = row1;
 
-    // Row 2
+    // Row 2 - Stereo/Limiter are compact (1 row of knobs)
     bounds.removeFromTop(kModuleGap);
-    auto row2 = bounds;
+    auto row2 = bounds.removeFromTop(kModuleRow2H);
     auto stereoArea = row2.removeFromLeft(halfW);
     row2.removeFromLeft(kSectionGap);
     auto limiterArea = row2;
@@ -1195,6 +1345,48 @@ void AutomasterAudioProcessorEditor::paintAllModules(juce::Graphics& g)
     drawModuleLabel(compArea, "COMPRESSOR", AutomasterColors::compColor);
     drawModuleLabel(stereoArea, "STEREO", AutomasterColors::stereoColor);
     drawModuleLabel(limiterArea, "LIMITER", AutomasterColors::limiterColor);
+
+    // Draw colored band indicators in EQ section
+    paintEQBandIndicators(g, eqArea);
+}
+
+void AutomasterAudioProcessorEditor::paintEQBandIndicators(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    // Skip module label area
+    area.removeFromTop(kModuleLabelH + 2);
+    area = area.reduced(4, 2);
+
+    // Skip row 1 (HPF, LPF, shelves)
+    area.removeFromTop(kKnobHeight);
+    area.removeFromTop(kRowGap);
+
+    // Row 2 is where the parametric bands are
+    auto row2 = area.removeFromTop(kKnobHeight);
+
+    g.setFont(juce::FontOptions(9.0f).withStyle("Bold"));
+
+    // Draw colored dot and label above each band pair
+    for (int i = 0; i < 4; ++i)
+    {
+        // Each band takes: freq knob + gap + gain knob + (gap*2 if not last)
+        auto bandArea = row2.removeFromLeft(kKnobSize);  // freq
+        row2.removeFromLeft(kGap);
+        auto gainArea = row2.removeFromLeft(kKnobSize);  // gain
+        if (i < 3) row2.removeFromLeft(kGap * 2);
+
+        // Draw colored indicator dot above the band
+        auto color = AutomasterColors::getEQBandColor(i);
+        int dotX = bandArea.getX() + (bandArea.getWidth() + kGap + gainArea.getWidth()) / 2 - 4;
+        int dotY = bandArea.getY() - 10;
+
+        // Colored dot
+        g.setColour(color);
+        g.fillEllipse((float)dotX, (float)dotY, 8.0f, 8.0f);
+
+        // Band number label
+        g.setColour(juce::Colours::white);
+        g.drawText(juce::String(i + 1), dotX - 4, dotY - 1, 16, 10, juce::Justification::centred);
+    }
 }
 
 void AutomasterAudioProcessorEditor::updateMeters()
@@ -1261,4 +1453,5 @@ void AutomasterAudioProcessorEditor::filesDropped(const juce::StringArray& files
 void AutomasterAudioProcessorEditor::timerCallback()
 {
     updateMeters();
+    spectrumAnalyzer.repaint();  // Update EQ curve display
 }

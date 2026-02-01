@@ -44,7 +44,150 @@ namespace AutomasterColors
     const juce::Colour compColor       = juce::Colour(0xfff97316);  // Orange
     const juce::Colour stereoColor     = juce::Colour(0xff8b5cf6);  // Purple
     const juce::Colour limiterColor    = juce::Colour(0xffef4444);  // Red
+
+    // EQ band colors (for visualizer and knob accents)
+    const juce::Colour eqBand1         = juce::Colour(0xff22c55e);  // Green
+    const juce::Colour eqBand2         = juce::Colour(0xff3b82f6);  // Blue
+    const juce::Colour eqBand3         = juce::Colour(0xfff59e0b);  // Amber
+    const juce::Colour eqBand4         = juce::Colour(0xffec4899);  // Pink
+    const juce::Colour eqLowShelf      = juce::Colour(0xff06b6d4);  // Cyan
+    const juce::Colour eqHighShelf     = juce::Colour(0xffa855f7);  // Purple
+    const juce::Colour eqHPF           = juce::Colour(0xff64748b);  // Gray
+    const juce::Colour eqLPF           = juce::Colour(0xff64748b);  // Gray
+
+    inline juce::Colour getEQBandColor(int band) {
+        switch(band) {
+            case 0: return eqBand1;
+            case 1: return eqBand2;
+            case 2: return eqBand3;
+            case 3: return eqBand4;
+            default: return eqColor;
+        }
+    }
 }
+
+// LookAndFeel that draws rotary sliders with a custom arc color and grey inner knob
+class ColoredKnobLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    ColoredKnobLookAndFeel(juce::Colour c) : color(c) {}
+
+    void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height,
+                          float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
+                          juce::Slider& slider) override
+    {
+        auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(4.0f);
+        auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
+        auto toAngle = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
+        auto lineW = radius * 0.1f;
+        auto arcRadius = radius - lineW * 0.5f;
+        juce::Point<float> centre = bounds.getCentre();
+
+        // Background track
+        juce::Path backgroundArc;
+        backgroundArc.addCentredArc(centre.x, centre.y, arcRadius, arcRadius,
+                                     0.0f, rotaryStartAngle, rotaryEndAngle, true);
+        g.setColour(AutomasterColors::panelBgLight);
+        g.strokePath(backgroundArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved,
+                                                          juce::PathStrokeType::rounded));
+
+        // Value arc with custom color
+        if (slider.isEnabled())
+        {
+            juce::Path valueArc;
+            valueArc.addCentredArc(centre.x, centre.y, arcRadius, arcRadius,
+                                    0.0f, rotaryStartAngle, toAngle, true);
+            g.setColour(color);
+            g.strokePath(valueArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved,
+                                                         juce::PathStrokeType::rounded));
+        }
+
+        // Inner knob body
+        auto knobRadius = arcRadius * 0.65f;
+        juce::Rectangle<float> knobBounds(centre.x - knobRadius, centre.y - knobRadius,
+                                           knobRadius * 2.0f, knobRadius * 2.0f);
+
+        // Knob gradient (dark grey)
+        juce::ColourGradient knobGradient(AutomasterColors::cardBg, centre.x, centre.y - knobRadius,
+                                           AutomasterColors::panelBg, centre.x, centre.y + knobRadius,
+                                           false);
+        g.setGradientFill(knobGradient);
+        g.fillEllipse(knobBounds);
+
+        // Knob outline with accent color hint
+        g.setColour(color.withAlpha(0.3f));
+        g.drawEllipse(knobBounds, 1.5f);
+
+        // Indicator line
+        g.setColour(slider.isEnabled() ? color : AutomasterColors::textMuted);
+        juce::Path indicator;
+        auto indicatorRadius = knobRadius * 0.8f;
+        auto indicatorWidth = lineW * 0.6f;
+        indicator.addRoundedRectangle(-indicatorWidth * 0.5f, -indicatorRadius,
+                                       indicatorWidth, indicatorRadius * 0.4f, 2.0f);
+        g.fillPath(indicator, juce::AffineTransform::rotation(toAngle).translated(centre));
+    }
+
+private:
+    juce::Colour color;
+};
+
+// LookAndFeel for toggle switches - draws pill-shaped toggle instead of 0/1 text
+class ToggleSwitchLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    ToggleSwitchLookAndFeel(juce::Colour accentColor = AutomasterColors::primary)
+        : accent(accentColor) {}
+
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                              const juce::Colour&, bool isMouseOver, bool isButtonDown) override
+    {
+        auto bounds = button.getLocalBounds().toFloat().reduced(2.0f);
+        bool isOn = button.getToggleState();
+
+        // Make it pill-shaped
+        float height = bounds.getHeight();
+        float width = juce::jmax(height * 1.8f, bounds.getWidth());
+        auto toggleBounds = bounds.withSizeKeepingCentre(width, height);
+
+        // Track background
+        g.setColour(isOn ? accent.withAlpha(0.3f) : AutomasterColors::panelBg);
+        g.fillRoundedRectangle(toggleBounds, height / 2);
+
+        // Track outline
+        g.setColour(isOn ? accent : AutomasterColors::panelBgLight);
+        g.drawRoundedRectangle(toggleBounds, height / 2, 1.0f);
+
+        // Thumb circle
+        float thumbDiameter = height - 4.0f;
+        float thumbX = isOn ? toggleBounds.getRight() - thumbDiameter - 2.0f
+                            : toggleBounds.getX() + 2.0f;
+        float thumbY = toggleBounds.getY() + 2.0f;
+
+        // Thumb shadow
+        g.setColour(juce::Colours::black.withAlpha(0.2f));
+        g.fillEllipse(thumbX + 1, thumbY + 1, thumbDiameter, thumbDiameter);
+
+        // Thumb
+        g.setColour(isOn ? accent : AutomasterColors::textMuted);
+        g.fillEllipse(thumbX, thumbY, thumbDiameter, thumbDiameter);
+
+        // Hover highlight
+        if (isMouseOver)
+        {
+            g.setColour(juce::Colours::white.withAlpha(0.1f));
+            g.fillEllipse(thumbX, thumbY, thumbDiameter, thumbDiameter);
+        }
+    }
+
+    void drawButtonText(juce::Graphics&, juce::TextButton&, bool, bool) override
+    {
+        // Don't draw any text - the toggle visual is enough
+    }
+
+private:
+    juce::Colour accent;
+};
 
 class AutomasterLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -83,6 +226,9 @@ public:
 
         juce::Point<float> centre = bounds.getCentre();
 
+        // Use primary accent color for non-custom sliders
+        auto accentColor = AutomasterColors::primary;
+
         // Background track
         juce::Path backgroundArc;
         backgroundArc.addCentredArc(centre.x, centre.y, arcRadius, arcRadius,
@@ -91,18 +237,14 @@ public:
         g.strokePath(backgroundArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved,
                                                           juce::PathStrokeType::rounded));
 
-        // Value arc
+        // Value arc - use accent color
         if (slider.isEnabled())
         {
             juce::Path valueArc;
             valueArc.addCentredArc(centre.x, centre.y, arcRadius, arcRadius,
                                     0.0f, rotaryStartAngle, toAngle, true);
 
-            // Gradient from primary to accent
-            juce::ColourGradient gradient(AutomasterColors::primary, centre.x, centre.y,
-                                           AutomasterColors::accent, centre.x + radius, centre.y + radius,
-                                           true);
-            g.setGradientFill(gradient);
+            g.setColour(accentColor);
             g.strokePath(valueArc, juce::PathStrokeType(lineW, juce::PathStrokeType::curved,
                                                          juce::PathStrokeType::rounded));
         }
@@ -119,18 +261,63 @@ public:
         g.setGradientFill(knobGradient);
         g.fillEllipse(knobBounds);
 
-        // Knob outline
-        g.setColour(AutomasterColors::panelBgLight);
-        g.drawEllipse(knobBounds, 1.0f);
+        // Knob outline with accent color hint
+        g.setColour(accentColor.withAlpha(0.3f));
+        g.drawEllipse(knobBounds, 1.5f);
 
-        // Indicator line
-        g.setColour(slider.isEnabled() ? AutomasterColors::primary : AutomasterColors::textMuted);
+        // Indicator line - use accent color
+        g.setColour(slider.isEnabled() ? accentColor : AutomasterColors::textMuted);
         juce::Path indicator;
         auto indicatorRadius = knobRadius * 0.8f;
         auto indicatorWidth = lineW * 0.6f;
         indicator.addRoundedRectangle(-indicatorWidth * 0.5f, -indicatorRadius,
                                        indicatorWidth, indicatorRadius * 0.4f, 2.0f);
         g.fillPath(indicator, juce::AffineTransform::rotation(toAngle).translated(centre));
+    }
+
+    void drawToggleButton(juce::Graphics& g, juce::ToggleButton& button,
+                          bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+    {
+        auto bounds = button.getLocalBounds().toFloat();
+
+        // Draw as a nice pill-shaped toggle switch
+        float toggleWidth = juce::jmin(bounds.getWidth(), 36.0f);
+        float toggleHeight = juce::jmin(bounds.getHeight(), 18.0f);
+
+        auto toggleBounds = juce::Rectangle<float>(
+            bounds.getCentreX() - toggleWidth / 2,
+            bounds.getCentreY() - toggleHeight / 2,
+            toggleWidth, toggleHeight);
+
+        bool isOn = button.getToggleState();
+
+        // Track background
+        g.setColour(isOn ? AutomasterColors::primary.withAlpha(0.3f) : AutomasterColors::panelBg);
+        g.fillRoundedRectangle(toggleBounds, toggleHeight / 2);
+
+        // Track border
+        g.setColour(isOn ? AutomasterColors::primary : AutomasterColors::panelBgLight.brighter(0.2f));
+        g.drawRoundedRectangle(toggleBounds, toggleHeight / 2, 1.0f);
+
+        // Thumb
+        float thumbSize = toggleHeight - 4.0f;
+        float thumbX = isOn ? toggleBounds.getRight() - thumbSize - 2.0f : toggleBounds.getX() + 2.0f;
+        float thumbY = toggleBounds.getCentreY() - thumbSize / 2;
+
+        // Thumb shadow
+        g.setColour(juce::Colours::black.withAlpha(0.2f));
+        g.fillEllipse(thumbX + 1, thumbY + 1, thumbSize, thumbSize);
+
+        // Thumb body
+        g.setColour(isOn ? AutomasterColors::primary : AutomasterColors::textSecondary);
+        g.fillEllipse(thumbX, thumbY, thumbSize, thumbSize);
+
+        // Thumb highlight
+        if (shouldDrawButtonAsHighlighted)
+        {
+            g.setColour(juce::Colours::white.withAlpha(0.1f));
+            g.fillEllipse(thumbX, thumbY, thumbSize, thumbSize);
+        }
     }
 
     void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
@@ -170,25 +357,97 @@ public:
                               bool isMouseOverButton, bool isButtonDown) override
     {
         auto bounds = button.getLocalBounds().toFloat().reduced(1.0f);
-        auto cornerSize = 6.0f;
 
-        juce::Colour baseColour = button.getToggleState() ?
-            AutomasterColors::primary : AutomasterColors::panelBgLight;
+        // Check if this is a small toggle button (like the switches)
+        bool isToggleSwitch = button.getClickingTogglesState() && bounds.getWidth() < 50 && bounds.getHeight() < 30;
 
-        if (isButtonDown)
-            baseColour = baseColour.darker(0.2f);
-        else if (isMouseOverButton)
-            baseColour = baseColour.brighter(0.1f);
-
-        g.setColour(baseColour);
-        g.fillRoundedRectangle(bounds, cornerSize);
-
-        // Border for non-toggled buttons
-        if (!button.getToggleState())
+        if (isToggleSwitch)
         {
-            g.setColour(AutomasterColors::panelBg.brighter(0.2f));
-            g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
+            // Draw as pill-shaped toggle switch
+            float cornerRadius = bounds.getHeight() / 2.0f;
+            bool isOn = button.getToggleState();
+
+            // Track background
+            g.setColour(isOn ? AutomasterColors::primary.withAlpha(0.3f) : AutomasterColors::panelBg);
+            g.fillRoundedRectangle(bounds, cornerRadius);
+
+            // Track border
+            g.setColour(isOn ? AutomasterColors::primary : AutomasterColors::panelBgLight.brighter(0.2f));
+            g.drawRoundedRectangle(bounds, cornerRadius, 1.0f);
+
+            // Thumb
+            float thumbSize = bounds.getHeight() - 4.0f;
+            float thumbX = isOn ? bounds.getRight() - thumbSize - 2.0f : bounds.getX() + 2.0f;
+            float thumbY = bounds.getCentreY() - thumbSize / 2.0f;
+
+            // Thumb shadow
+            g.setColour(juce::Colours::black.withAlpha(0.3f));
+            g.fillEllipse(thumbX + 1, thumbY + 1, thumbSize, thumbSize);
+
+            // Thumb body
+            g.setColour(isOn ? AutomasterColors::primary : AutomasterColors::textSecondary);
+            g.fillEllipse(thumbX, thumbY, thumbSize, thumbSize);
+
+            // Hover highlight
+            if (isMouseOverButton)
+            {
+                g.setColour(juce::Colours::white.withAlpha(0.15f));
+                g.fillEllipse(thumbX, thumbY, thumbSize, thumbSize);
+            }
         }
+        else
+        {
+            // Regular button
+            auto cornerSize = 6.0f;
+
+            juce::Colour baseColour = button.getToggleState() ?
+                AutomasterColors::primary : AutomasterColors::panelBgLight;
+
+            if (isButtonDown)
+                baseColour = baseColour.darker(0.2f);
+            else if (isMouseOverButton)
+                baseColour = baseColour.brighter(0.1f);
+
+            g.setColour(baseColour);
+            g.fillRoundedRectangle(bounds, cornerSize);
+
+            // Border for non-toggled buttons
+            if (!button.getToggleState())
+            {
+                g.setColour(AutomasterColors::panelBg.brighter(0.2f));
+                g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
+            }
+        }
+    }
+
+    void drawButtonText(juce::Graphics& g, juce::TextButton& button,
+                        bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
+    {
+        auto bounds = button.getLocalBounds().toFloat();
+
+        // Don't draw text for small toggle switches
+        bool isToggleSwitch = button.getClickingTogglesState() && bounds.getWidth() < 50 && bounds.getHeight() < 30;
+        if (isToggleSwitch)
+            return;
+
+        // Regular button text
+        auto font = getTextButtonFont(button, button.getHeight());
+        g.setFont(font);
+        g.setColour(button.findColour(button.getToggleState() ? juce::TextButton::textColourOnId
+                                                              : juce::TextButton::textColourOffId)
+                          .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
+
+        auto yIndent = juce::jmin(4, button.proportionOfHeight(0.3f));
+        auto cornerSize = juce::jmin(button.getHeight(), button.getWidth()) / 2;
+        auto fontHeight = juce::roundToInt(font.getHeight() * 0.6f);
+        auto leftIndent = juce::jmin(fontHeight, 2 + cornerSize / (button.isConnectedOnLeft() ? 4 : 2));
+        auto rightIndent = juce::jmin(fontHeight, 2 + cornerSize / (button.isConnectedOnRight() ? 4 : 2));
+        auto textWidth = button.getWidth() - leftIndent - rightIndent;
+
+        if (textWidth > 0)
+            g.drawFittedText(button.getButtonText(),
+                             leftIndent, yIndent, textWidth, button.getHeight() - yIndent * 2,
+                             juce::Justification::centred, 2);
     }
 
     void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
@@ -247,6 +506,75 @@ public:
     {
         return juce::Font(13.0f);
     }
+};
+
+// Custom toggle switch component (pill-shaped)
+class ToggleSwitch : public juce::Component
+{
+public:
+    ToggleSwitch() { setMouseCursor(juce::MouseCursor::PointingHandCursor); }
+
+    void setToggleState(bool shouldBeOn)
+    {
+        if (isOn != shouldBeOn)
+        {
+            isOn = shouldBeOn;
+            repaint();
+        }
+    }
+
+    bool getToggleState() const { return isOn; }
+
+    std::function<void(bool)> onStateChange;
+
+    void paint(juce::Graphics& g) override
+    {
+        auto bounds = getLocalBounds().toFloat().reduced(1.0f);
+        float cornerRadius = bounds.getHeight() / 2.0f;
+
+        // Track background
+        g.setColour(isOn ? AutomasterColors::primary.withAlpha(0.3f) : AutomasterColors::panelBg);
+        g.fillRoundedRectangle(bounds, cornerRadius);
+
+        // Track border
+        g.setColour(isOn ? AutomasterColors::primary : AutomasterColors::panelBgLight.brighter(0.2f));
+        g.drawRoundedRectangle(bounds, cornerRadius, 1.0f);
+
+        // Thumb
+        float thumbSize = bounds.getHeight() - 4.0f;
+        float thumbX = isOn ? bounds.getRight() - thumbSize - 2.0f : bounds.getX() + 2.0f;
+        float thumbY = bounds.getCentreY() - thumbSize / 2.0f;
+
+        // Thumb shadow
+        g.setColour(juce::Colours::black.withAlpha(0.3f));
+        g.fillEllipse(thumbX + 1, thumbY + 1, thumbSize, thumbSize);
+
+        // Thumb body
+        g.setColour(isOn ? AutomasterColors::primary : AutomasterColors::textSecondary);
+        g.fillEllipse(thumbX, thumbY, thumbSize, thumbSize);
+
+        // Thumb highlight on hover
+        if (isMouseOver)
+        {
+            g.setColour(juce::Colours::white.withAlpha(0.15f));
+            g.fillEllipse(thumbX, thumbY, thumbSize, thumbSize);
+        }
+    }
+
+    void mouseDown(const juce::MouseEvent&) override
+    {
+        isOn = !isOn;
+        repaint();
+        if (onStateChange)
+            onStateChange(isOn);
+    }
+
+    void mouseEnter(const juce::MouseEvent&) override { isMouseOver = true; repaint(); }
+    void mouseExit(const juce::MouseEvent&) override { isMouseOver = false; repaint(); }
+
+private:
+    bool isOn = false;
+    bool isMouseOver = false;
 };
 
 // Custom component for glowing buttons (AI status indicator)

@@ -4,6 +4,7 @@
 #include "UI/MeterComponents.h"
 #include "UI/ReferenceWaveform.h"
 #include "UI/ProcessingChainView.h"
+#include "UI/SpectrumAnalyzer.h"
 
 class AutomasterAudioProcessorEditor : public gin::ProcessorEditor,
                                         public juce::FileDragAndDropTarget,
@@ -42,6 +43,9 @@ private:
 
     // Processing chain view
     ProcessingChainView chainView;
+
+    // Spectrum analyzer / EQ visualizer
+    SpectrumAnalyzer spectrumAnalyzer;
 
     // EQ knobs
     gin::Knob hpfFreqKnob, lpfFreqKnob;
@@ -118,6 +122,14 @@ private:
     void paintStereoSections(juce::Graphics& g, juce::Rectangle<int> area);
     void paintLimiterSections(juce::Graphics& g, juce::Rectangle<int> area);
     void paintAllModules(juce::Graphics& g);
+    void paintEQBandIndicators(juce::Graphics& g, juce::Rectangle<int> area);
+
+    std::unique_ptr<juce::FileChooser> fileChooser;
+
+    // Colored LookAndFeels for knobs
+    juce::OwnedArray<ColoredKnobLookAndFeel> coloredKnobLAFs;
+    // Toggle switch LookAndFeels
+    juce::OwnedArray<ToggleSwitchLookAndFeel> switchLAFs;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomasterAudioProcessorEditor)
 };

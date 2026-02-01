@@ -228,6 +228,96 @@ public:
         return response;
     }
 
+    // Get magnitude at a single frequency (for spectrum analyzer)
+    float getMagnitudeAtFrequency(float freq) const
+    {
+        float magnitude = 1.0f;
+
+        if (hpfEnabled)
+        {
+            float hpfMag = getFilterMagnitude(hpfCoeffs, freq);
+            for (int stage = 0; stage < hpfOrder; ++stage)
+                magnitude *= hpfMag;
+        }
+
+        if (std::abs(lowShelfGain) > 0.01f)
+            magnitude *= getFilterMagnitude(lowShelfCoeffs, freq);
+
+        for (int band = 0; band < NUM_BANDS; ++band)
+        {
+            if (bandEnabled[band] && std::abs(bandGain[band]) > 0.01f)
+                magnitude *= getFilterMagnitude(bandCoeffs[band], freq);
+        }
+
+        if (std::abs(highShelfGain) > 0.01f)
+            magnitude *= getFilterMagnitude(highShelfCoeffs, freq);
+
+        if (lpfEnabled)
+        {
+            float lpfMag = getFilterMagnitude(lpfCoeffs, freq);
+            for (int stage = 0; stage < lpfOrder; ++stage)
+                magnitude *= lpfMag;
+        }
+
+        return magnitude;
+    }
+
+    // Get individual band magnitude at frequency (for colored band curves)
+    float getBandMagnitudeAtFrequency(int band, float freq) const
+    {
+        if (band < 0 || band >= NUM_BANDS)
+            return 1.0f;
+        if (!bandEnabled[band] || std::abs(bandGain[band]) < 0.01f)
+            return 1.0f;
+        return getFilterMagnitude(bandCoeffs[band], freq);
+    }
+
+    // Get shelf magnitude at frequency
+    float getLowShelfMagnitudeAtFrequency(float freq) const
+    {
+        if (std::abs(lowShelfGain) < 0.01f)
+            return 1.0f;
+        return getFilterMagnitude(lowShelfCoeffs, freq);
+    }
+
+    float getHighShelfMagnitudeAtFrequency(float freq) const
+    {
+        if (std::abs(highShelfGain) < 0.01f)
+            return 1.0f;
+        return getFilterMagnitude(highShelfCoeffs, freq);
+    }
+
+    // Get filter magnitudes
+    float getHPFMagnitudeAtFrequency(float freq) const
+    {
+        if (!hpfEnabled)
+            return 1.0f;
+        float mag = getFilterMagnitude(hpfCoeffs, freq);
+        float result = 1.0f;
+        for (int stage = 0; stage < hpfOrder; ++stage)
+            result *= mag;
+        return result;
+    }
+
+    float getLPFMagnitudeAtFrequency(float freq) const
+    {
+        if (!lpfEnabled)
+            return 1.0f;
+        float mag = getFilterMagnitude(lpfCoeffs, freq);
+        float result = 1.0f;
+        for (int stage = 0; stage < lpfOrder; ++stage)
+            result *= mag;
+        return result;
+    }
+
+    bool isHPFEnabled() const { return hpfEnabled; }
+    bool isLPFEnabled() const { return lpfEnabled; }
+    bool isBandActive(int band) const {
+        return band >= 0 && band < NUM_BANDS && bandEnabled[band] && std::abs(bandGain[band]) > 0.01f;
+    }
+    bool isLowShelfActive() const { return std::abs(lowShelfGain) > 0.01f; }
+    bool isHighShelfActive() const { return std::abs(highShelfGain) > 0.01f; }
+
     // Getters for current settings
     float getHPFFrequency() const { return hpfFreq; }
     float getLPFFrequency() const { return lpfFreq; }

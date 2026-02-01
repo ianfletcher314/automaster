@@ -41,7 +41,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                           {20.0f, 500.0f, 1.0f, 0.5f}, 30.0f,
                           gin::SmoothingType(0.05f));
 
-    hpfEnabled = addExtParam("hpfEnabled", "HPF Enabled", "HPF On", "",
+    hpfEnabled = addExtParam("hpfEnabled", "HPF Enabled", "On", "",
                              {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                              gin::SmoothingType(0.0f));
 
@@ -49,7 +49,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                           {5000.0f, 20000.0f, 1.0f, 0.5f}, 18000.0f,
                           gin::SmoothingType(0.05f));
 
-    lpfEnabled = addExtParam("lpfEnabled", "LPF Enabled", "LPF On", "",
+    lpfEnabled = addExtParam("lpfEnabled", "LPF Enabled", "On", "",
                              {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                              gin::SmoothingType(0.0f));
 
@@ -89,7 +89,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                gin::SmoothingType(0.05f));
     }
 
-    eqBypass = addExtParam("eqBypass", "EQ Bypass", "EQ Byp", "",
+    eqBypass = addExtParam("eqBypass", "EQ Bypass", "Bypass", "",
                            {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                            gin::SmoothingType(0.0f));
 
@@ -134,7 +134,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                     gin::SmoothingType(0.02f));
     }
 
-    compBypass = addExtParam("compBypass", "Comp Bypass", "Comp Byp", "",
+    compBypass = addExtParam("compBypass", "Comp Bypass", "Bypass", "",
                              {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                              gin::SmoothingType(0.0f));
 
@@ -159,11 +159,11 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                {60.0f, 300.0f, 1.0f, 1.0f}, 120.0f,
                                gin::SmoothingType(0.05f));
 
-    monoBassEnabled = addExtParam("monoBassEnabled", "Mono Bass", "Mono On", "",
+    monoBassEnabled = addExtParam("monoBassEnabled", "Mono Bass", "On", "",
                                   {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                                   gin::SmoothingType(0.0f));
 
-    stereoBypass = addExtParam("stereoBypass", "Stereo Bypass", "St Byp", "",
+    stereoBypass = addExtParam("stereoBypass", "Stereo Bypass", "Bypass", "",
                                {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                                gin::SmoothingType(0.0f));
 
@@ -176,7 +176,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                  {10.0f, 1000.0f, 1.0f, 0.4f}, 100.0f,
                                  gin::SmoothingType(0.05f));
 
-    limiterBypass = addExtParam("limiterBypass", "Limiter Bypass", "Lim Byp", "",
+    limiterBypass = addExtParam("limiterBypass", "Limiter Bypass", "Bypass", "",
                                 {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                                 gin::SmoothingType(0.0f));
 
