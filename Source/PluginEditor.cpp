@@ -421,9 +421,13 @@ void AutomasterAudioProcessorEditor::paint(juce::Graphics& g)
             paintEQSections(g, contentArea);
             break;
         case ProcessingChainView::Module::Compressor:
+            paintCompressorSections(g, contentArea);
+            break;
         case ProcessingChainView::Module::Stereo:
+            paintStereoSections(g, contentArea);
+            break;
         case ProcessingChainView::Module::Limiter:
-            // Other modules will get their own section painting later
+            paintLimiterSections(g, contentArea);
             break;
     }
 }
@@ -640,107 +644,323 @@ void AutomasterAudioProcessorEditor::paintEQSections(juce::Graphics& g, juce::Re
 
 void AutomasterAudioProcessorEditor::layoutCompressor(juce::Rectangle<int> area)
 {
-    // Compressor: Crossovers on top, then 3 bands each with Thresh/Ratio/Attack/Release/Makeup + GR meter
-    // Using SAME kKnobSize as EQ
+    // Compressor: [CROSSOVER] | [LOW] | [MID] | [HIGH] | [BYPASS]
 
-    int totalRows = 3; // Crossover row + 2 rows of band controls
-    int contentHeight = totalRows * kKnobHeight + kRowGap * 2;
-    int vertPad = (area.getHeight() - contentHeight) / 2;
-    if (vertPad > 0) area.removeFromTop(vertPad);
+    const int xoverSectionW = kKnobSize + 8;
+    const int bandSectionW = kKnobSize * 2 + kGap + 8;
+    const int contentH = kKnobHeight * 2 + kRowGap;
 
-    // Crossover row
-    auto xoverRow = area.removeFromTop(kKnobHeight);
-    lowMidXoverKnob.setBounds(xoverRow.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    xoverRow.removeFromLeft(kGap);
-    midHighXoverKnob.setBounds(xoverRow.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    compBypassSwitch.setBounds(xoverRow.removeFromRight(kSwitchWidth).withHeight(kSwitchHeight).translated(0, (kKnobHeight - kSwitchHeight) / 2));
+    // Reserve space for section labels
+    area.removeFromTop(kSectionLabelH + 4);
 
-    area.removeFromTop(kRowGap);
+    // Center content vertically
+    int vPad = (area.getHeight() - contentH) / 2;
+    if (vPad > 0) area.removeFromTop(vPad);
 
-    // Band controls - 2 rows, 3 bands
-    int bandWidth = (area.getWidth() - kGap * 2) / 3;
+    int switchY = (kKnobSize - kSwitchHeight) / 2;
 
-    // Row with Threshold, Ratio, Attack for each band
-    auto ctrlRow1 = area.removeFromTop(kKnobHeight);
-    for (int i = 0; i < 3; ++i)
-    {
-        auto bandArea = ctrlRow1.removeFromLeft(bandWidth);
-        if (i < 2) ctrlRow1.removeFromLeft(kGap);
+    // === CROSSOVER SECTION ===
+    auto xoverArea = area.removeFromLeft(xoverSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
 
-        compThresholdKnobs[i]->setBounds(bandArea.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-        compRatioKnobs[i]->setBounds(bandArea.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-        compAttackKnobs[i]->setBounds(bandArea.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    }
+    // Low-Mid xover (top)
+    auto xoverRow1 = xoverArea.removeFromTop(kKnobHeight);
+    lowMidXoverKnob.setBounds(xoverRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
 
-    area.removeFromTop(kRowGap);
+    xoverArea.removeFromTop(kRowGap);
 
-    // Row with Release, Makeup, GR meter for each band
-    auto ctrlRow2 = area.removeFromTop(kKnobHeight);
-    for (int i = 0; i < 3; ++i)
-    {
-        auto bandArea = ctrlRow2.removeFromLeft(bandWidth);
-        if (i < 2) ctrlRow2.removeFromLeft(kGap);
+    // Mid-High xover (bottom)
+    auto xoverRow2 = xoverArea.removeFromTop(kKnobHeight);
+    midHighXoverKnob.setBounds(xoverRow2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
 
-        compReleaseKnobs[i]->setBounds(bandArea.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-        compMakeupKnobs[i]->setBounds(bandArea.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-        compGRMeters[i].setBounds(bandArea.removeFromLeft(kKnobSize).withHeight(kKnobHeight).reduced(8, 4));
-    }
+    // === LOW BAND SECTION ===
+    auto lowArea = area.removeFromLeft(bandSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    auto lowRow1 = lowArea.removeFromTop(kKnobHeight);
+    compThresholdKnobs[0]->setBounds(lowRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    lowRow1.removeFromLeft(kGap);
+    compRatioKnobs[0]->setBounds(lowRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    lowArea.removeFromTop(kRowGap);
+
+    auto lowRow2 = lowArea.removeFromTop(kKnobHeight);
+    compAttackKnobs[0]->setBounds(lowRow2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    lowRow2.removeFromLeft(kGap);
+    compReleaseKnobs[0]->setBounds(lowRow2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    // Hide makeup and GR meter for compact layout
+    compMakeupKnobs[0]->setVisible(false);
+    compGRMeters[0].setVisible(false);
+
+    // === MID BAND SECTION ===
+    auto midArea = area.removeFromLeft(bandSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    auto midRow1 = midArea.removeFromTop(kKnobHeight);
+    compThresholdKnobs[1]->setBounds(midRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    midRow1.removeFromLeft(kGap);
+    compRatioKnobs[1]->setBounds(midRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    midArea.removeFromTop(kRowGap);
+
+    auto midRow2 = midArea.removeFromTop(kKnobHeight);
+    compAttackKnobs[1]->setBounds(midRow2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    midRow2.removeFromLeft(kGap);
+    compReleaseKnobs[1]->setBounds(midRow2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    compMakeupKnobs[1]->setVisible(false);
+    compGRMeters[1].setVisible(false);
+
+    // === HIGH BAND SECTION ===
+    auto highArea = area.removeFromLeft(bandSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    auto highRow1 = highArea.removeFromTop(kKnobHeight);
+    compThresholdKnobs[2]->setBounds(highRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    highRow1.removeFromLeft(kGap);
+    compRatioKnobs[2]->setBounds(highRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    highArea.removeFromTop(kRowGap);
+
+    auto highRow2 = highArea.removeFromTop(kKnobHeight);
+    compAttackKnobs[2]->setBounds(highRow2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    highRow2.removeFromLeft(kGap);
+    compReleaseKnobs[2]->setBounds(highRow2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    compMakeupKnobs[2]->setVisible(false);
+    compGRMeters[2].setVisible(false);
+
+    // === BYPASS SWITCH ===
+    compBypassSwitch.setBounds(area.withWidth(kSwitchWidth).withHeight(kSwitchHeight).translated(6, kKnobHeight - kSwitchHeight / 2));
+}
+
+void AutomasterAudioProcessorEditor::paintCompressorSections(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    const int xoverSectionW = kKnobSize + 8;
+    const int bandSectionW = kKnobSize * 2 + kGap + 8;
+    const int contentH = kKnobHeight * 2 + kRowGap;
+
+    // Section labels
+    auto labelArea = area;
+    auto labelRow = labelArea.removeFromTop(kSectionLabelH);
+
+    g.setColour(juce::Colour(0xFF99AABB));
+    g.setFont(juce::FontOptions(9.0f).withStyle("Bold"));
+
+    auto xoverLbl = labelRow.removeFromLeft(xoverSectionW);
+    g.drawText("XOVER", xoverLbl, juce::Justification::centred);
+    labelRow.removeFromLeft(kSectionGap);
+
+    auto lowLbl = labelRow.removeFromLeft(bandSectionW);
+    g.drawText("LOW", lowLbl, juce::Justification::centred);
+    labelRow.removeFromLeft(kSectionGap);
+
+    auto midLbl = labelRow.removeFromLeft(bandSectionW);
+    g.drawText("MID", midLbl, juce::Justification::centred);
+    labelRow.removeFromLeft(kSectionGap);
+
+    auto highLbl = labelRow.removeFromLeft(bandSectionW);
+    g.drawText("HIGH", highLbl, juce::Justification::centred);
+
+    // Section backgrounds
+    auto bgStartY = area.getY() + kSectionLabelH + 2;
+    int vPad = (area.getHeight() - kSectionLabelH - 4 - contentH) / 2;
+    if (vPad > 2) bgStartY += vPad - 2;
+
+    g.setColour(juce::Colour(0xFF262626));
+
+    int x = area.getX();
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)xoverSectionW, (float)(contentH + 4), 4.0f);
+    x += xoverSectionW + kSectionGap;
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)bandSectionW, (float)(contentH + 4), 4.0f);
+    x += bandSectionW + kSectionGap;
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)bandSectionW, (float)(contentH + 4), 4.0f);
+    x += bandSectionW + kSectionGap;
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)bandSectionW, (float)(contentH + 4), 4.0f);
 }
 
 void AutomasterAudioProcessorEditor::layoutStereo(juce::Rectangle<int> area)
 {
-    // Stereo: 2 rows - Width controls, then MonoBass + Correlation
-    // Using SAME kKnobSize as EQ
+    // Stereo: [WIDTH] | [BAND WIDTH] | [MONO BASS] | [METER] | [BYPASS]
 
-    int totalRows = 2;
-    int contentHeight = totalRows * kKnobHeight + kRowGap;
-    int vertPad = (area.getHeight() - contentHeight) / 2;
-    if (vertPad > 0) area.removeFromTop(vertPad);
+    const int widthSectionW = kKnobSize + 8;
+    const int bandWidthSectionW = kKnobSize * 3 + kGap * 2 + 8;
+    const int monoBassSectionW = kSwitchWidth + 4 + kKnobSize + 8;
+    const int meterSectionW = kKnobSize * 2 + 8;
+    const int contentH = kKnobHeight * 2 + kRowGap;
 
-    // Row 1: Global + Low/Mid/High width
-    auto row1 = area.removeFromTop(kKnobHeight);
-    globalWidthKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    row1.removeFromLeft(kGap * 2);
-    lowWidthKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    row1.removeFromLeft(kGap);
-    midWidthKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    row1.removeFromLeft(kGap);
-    highWidthKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    stereoBypassSwitch.setBounds(row1.removeFromRight(kSwitchWidth).withHeight(kSwitchHeight).translated(0, (kKnobHeight - kSwitchHeight) / 2));
+    // Reserve space for section labels
+    area.removeFromTop(kSectionLabelH + 4);
 
-    area.removeFromTop(kRowGap);
+    // Center content vertically
+    int vPad = (area.getHeight() - contentH) / 2;
+    if (vPad > 0) area.removeFromTop(vPad);
 
-    // Row 2: Mono bass + correlation
-    auto row2 = area.removeFromTop(kKnobHeight);
-    monoBassEnableSwitch.setBounds(row2.removeFromLeft(kSwitchWidth).withHeight(kSwitchHeight).translated(0, (kKnobHeight - kSwitchHeight) / 2));
-    row2.removeFromLeft(4);
-    monoBassFreqKnob.setBounds(row2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    row2.removeFromLeft(kGap * 2);
-    correlationMeter.setBounds(row2.removeFromLeft(kKnobSize * 3).withHeight(kKnobHeight - 8).translated(0, 4));
+    int switchY = (kKnobSize - kSwitchHeight) / 2;
+
+    // === WIDTH SECTION (Global) ===
+    auto widthArea = area.removeFromLeft(widthSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    // Global width centered vertically in 2-row space
+    auto widthRow = widthArea.removeFromTop(kKnobHeight);
+    globalWidthKnob.setBounds(widthRow.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    // === BAND WIDTH SECTION ===
+    auto bandWidthArea = area.removeFromLeft(bandWidthSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    // Row 1: Low, Mid, High width knobs
+    auto bwRow1 = bandWidthArea.removeFromTop(kKnobHeight);
+    lowWidthKnob.setBounds(bwRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    bwRow1.removeFromLeft(kGap);
+    midWidthKnob.setBounds(bwRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    bwRow1.removeFromLeft(kGap);
+    highWidthKnob.setBounds(bwRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    // === MONO BASS SECTION ===
+    auto monoBassArea = area.removeFromLeft(monoBassSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    auto mbRow = monoBassArea.removeFromTop(kKnobHeight);
+    monoBassEnableSwitch.setBounds(mbRow.removeFromLeft(kSwitchWidth).withHeight(kSwitchHeight).translated(0, switchY));
+    mbRow.removeFromLeft(4);
+    monoBassFreqKnob.setBounds(mbRow.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    // === METER SECTION ===
+    auto meterArea = area.removeFromLeft(meterSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    correlationMeter.setBounds(meterArea.removeFromTop(kKnobHeight + kRowGap + kKnobHeight / 2).reduced(0, 4));
+
+    // === BYPASS SWITCH ===
+    stereoBypassSwitch.setBounds(area.withWidth(kSwitchWidth).withHeight(kSwitchHeight).translated(6, kKnobHeight - kSwitchHeight / 2));
+}
+
+void AutomasterAudioProcessorEditor::paintStereoSections(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    const int widthSectionW = kKnobSize + 8;
+    const int bandWidthSectionW = kKnobSize * 3 + kGap * 2 + 8;
+    const int monoBassSectionW = kSwitchWidth + 4 + kKnobSize + 8;
+    const int meterSectionW = kKnobSize * 2 + 8;
+    const int contentH = kKnobHeight * 2 + kRowGap;
+
+    // Section labels
+    auto labelArea = area;
+    auto labelRow = labelArea.removeFromTop(kSectionLabelH);
+
+    g.setColour(juce::Colour(0xFF99AABB));
+    g.setFont(juce::FontOptions(9.0f).withStyle("Bold"));
+
+    auto widthLbl = labelRow.removeFromLeft(widthSectionW);
+    g.drawText("WIDTH", widthLbl, juce::Justification::centred);
+    labelRow.removeFromLeft(kSectionGap);
+
+    auto bandLbl = labelRow.removeFromLeft(bandWidthSectionW);
+    g.drawText("BANDS", bandLbl, juce::Justification::centred);
+    labelRow.removeFromLeft(kSectionGap);
+
+    auto mbLbl = labelRow.removeFromLeft(monoBassSectionW);
+    g.drawText("MONO BASS", mbLbl, juce::Justification::centred);
+    labelRow.removeFromLeft(kSectionGap);
+
+    auto meterLbl = labelRow.removeFromLeft(meterSectionW);
+    g.drawText("CORRELATION", meterLbl, juce::Justification::centred);
+
+    // Section backgrounds
+    auto bgStartY = area.getY() + kSectionLabelH + 2;
+    int vPad = (area.getHeight() - kSectionLabelH - 4 - contentH) / 2;
+    if (vPad > 2) bgStartY += vPad - 2;
+
+    g.setColour(juce::Colour(0xFF262626));
+
+    int x = area.getX();
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)widthSectionW, (float)(contentH + 4), 4.0f);
+    x += widthSectionW + kSectionGap;
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)bandWidthSectionW, (float)(contentH + 4), 4.0f);
+    x += bandWidthSectionW + kSectionGap;
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)monoBassSectionW, (float)(contentH + 4), 4.0f);
+    x += monoBassSectionW + kSectionGap;
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)meterSectionW, (float)(contentH + 4), 4.0f);
 }
 
 void AutomasterAudioProcessorEditor::layoutLimiter(juce::Rectangle<int> area)
 {
-    // Limiter: 2 rows to match other panels visually
-    // Using SAME kKnobSize as EQ
+    // Limiter: [CONTROLS] | [GAIN REDUCTION] | [BYPASS]
 
-    int totalRows = 2;
-    int contentHeight = totalRows * kKnobHeight + kRowGap;
-    int vertPad = (area.getHeight() - contentHeight) / 2;
-    if (vertPad > 0) area.removeFromTop(vertPad);
+    const int controlsSectionW = kKnobSize * 2 + kGap + 8;
+    const int meterSectionW = kKnobSize * 4 + 8;
+    const int contentH = kKnobHeight * 2 + kRowGap;
 
-    // Row 1: Ceiling + Release + GR meter
-    auto row1 = area.removeFromTop(kKnobHeight);
-    ceilingKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    row1.removeFromLeft(kGap);
-    limiterReleaseKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-    row1.removeFromLeft(kGap * 2);
-    limiterGRMeter.setBounds(row1.removeFromLeft(kKnobSize * 4).withHeight(kKnobHeight - 8).translated(0, 4));
-    limiterBypassSwitch.setBounds(row1.removeFromRight(kSwitchWidth).withHeight(kSwitchHeight).translated(0, (kKnobHeight - kSwitchHeight) / 2));
+    // Reserve space for section labels
+    area.removeFromTop(kSectionLabelH + 4);
 
-    // Row 2: Empty but maintains consistent 2-row height with other panels
-    area.removeFromTop(kRowGap);
-    area.removeFromTop(kKnobHeight);
+    // Center content vertically
+    int vPad = (area.getHeight() - contentH) / 2;
+    if (vPad > 0) area.removeFromTop(vPad);
+
+    // === CONTROLS SECTION ===
+    auto controlsArea = area.removeFromLeft(controlsSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    // Ceiling (top row)
+    auto ctrlRow1 = controlsArea.removeFromTop(kKnobHeight);
+    ceilingKnob.setBounds(ctrlRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+    ctrlRow1.removeFromLeft(kGap);
+    limiterReleaseKnob.setBounds(ctrlRow1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
+
+    // === METER SECTION ===
+    auto meterArea = area.removeFromLeft(meterSectionW).reduced(4, 0);
+    area.removeFromLeft(kSectionGap);
+
+    limiterGRMeter.setBounds(meterArea.removeFromTop(kKnobHeight + kRowGap + kKnobHeight / 2).reduced(4, 8));
+
+    // === BYPASS SWITCH ===
+    limiterBypassSwitch.setBounds(area.withWidth(kSwitchWidth).withHeight(kSwitchHeight).translated(6, kKnobHeight - kSwitchHeight / 2));
+}
+
+void AutomasterAudioProcessorEditor::paintLimiterSections(juce::Graphics& g, juce::Rectangle<int> area)
+{
+    const int controlsSectionW = kKnobSize * 2 + kGap + 8;
+    const int meterSectionW = kKnobSize * 4 + 8;
+    const int contentH = kKnobHeight * 2 + kRowGap;
+
+    // Section labels
+    auto labelArea = area;
+    auto labelRow = labelArea.removeFromTop(kSectionLabelH);
+
+    g.setColour(juce::Colour(0xFF99AABB));
+    g.setFont(juce::FontOptions(9.0f).withStyle("Bold"));
+
+    auto ctrlLbl = labelRow.removeFromLeft(controlsSectionW);
+    g.drawText("CONTROLS", ctrlLbl, juce::Justification::centred);
+    labelRow.removeFromLeft(kSectionGap);
+
+    auto meterLbl = labelRow.removeFromLeft(meterSectionW);
+    g.drawText("GAIN REDUCTION", meterLbl, juce::Justification::centred);
+
+    // Section backgrounds
+    auto bgStartY = area.getY() + kSectionLabelH + 2;
+    int vPad = (area.getHeight() - kSectionLabelH - 4 - contentH) / 2;
+    if (vPad > 2) bgStartY += vPad - 2;
+
+    g.setColour(juce::Colour(0xFF262626));
+
+    int x = area.getX();
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)controlsSectionW, (float)(contentH + 4), 4.0f);
+    x += controlsSectionW + kSectionGap;
+
+    g.fillRoundedRectangle((float)x, (float)bgStartY, (float)meterSectionW, (float)(contentH + 4), 4.0f);
 }
 
 void AutomasterAudioProcessorEditor::updateMeters()

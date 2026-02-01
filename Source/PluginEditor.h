@@ -103,6 +103,9 @@ private:
 
     // Section painting helpers
     void paintEQSections(juce::Graphics& g, juce::Rectangle<int> area);
+    void paintCompressorSections(juce::Graphics& g, juce::Rectangle<int> area);
+    void paintStereoSections(juce::Graphics& g, juce::Rectangle<int> area);
+    void paintLimiterSections(juce::Graphics& g, juce::Rectangle<int> area);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomasterAudioProcessorEditor)
 };
