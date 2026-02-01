@@ -7,12 +7,10 @@
 class ProcessingChainView : public juce::Component
 {
 public:
-    // Module identifiers
     enum class Module { EQ, Compressor, Stereo, Limiter };
 
     ProcessingChainView()
     {
-        // Add module buttons
         for (int i = 0; i < 4; ++i)
         {
             auto& btn = moduleButtons[i];
@@ -26,7 +24,6 @@ public:
         moduleButtons[2].setButtonText("STEREO");
         moduleButtons[3].setButtonText("LIMITER");
 
-        // Set initial colors
         updateButtonColors();
     }
 
@@ -52,87 +49,24 @@ public:
     {
         auto bounds = getLocalBounds().toFloat();
 
-        // Background
-        g.setColour(AutomasterColors::panelBg);
-        g.fillRoundedRectangle(bounds, 6.0f);
-
-        // Chain flow visualization
-        auto flowBounds = bounds.reduced(10.0f, 30.0f);
-        float moduleWidth = flowBounds.getWidth() / 4.0f;
-
-        // Draw connecting lines
-        g.setColour(AutomasterColors::panelBgLight);
-        for (int i = 0; i < 3; ++i)
-        {
-            float x1 = flowBounds.getX() + (i + 0.8f) * moduleWidth;
-            float x2 = flowBounds.getX() + (i + 1.2f) * moduleWidth;
-            float y = flowBounds.getCentreY();
-
-            // Arrow
-            g.drawLine(x1, y, x2, y, 2.0f);
-
-            // Arrowhead
-            juce::Path arrow;
-            arrow.addTriangle(x2 - 8.0f, y - 4.0f, x2 - 8.0f, y + 4.0f, x2, y);
-            g.fillPath(arrow);
-        }
-
-        // Draw module boxes
-        for (int i = 0; i < 4; ++i)
-        {
-            auto moduleBounds = juce::Rectangle<float>(
-                flowBounds.getX() + i * moduleWidth + 5.0f,
-                flowBounds.getY(),
-                moduleWidth - 10.0f,
-                flowBounds.getHeight()
-            );
-
-            // Module background
-            juce::Colour moduleColor;
-            switch (static_cast<Module>(i))
-            {
-                case Module::EQ:         moduleColor = AutomasterColors::eqColor; break;
-                case Module::Compressor: moduleColor = AutomasterColors::compColor; break;
-                case Module::Stereo:     moduleColor = AutomasterColors::stereoColor; break;
-                case Module::Limiter:    moduleColor = AutomasterColors::limiterColor; break;
-            }
-
-            bool isSelected = (selectedModule == static_cast<Module>(i));
-            bool isBypassed = isModuleBypassed(static_cast<Module>(i));
-
-            g.setColour(isBypassed ? AutomasterColors::panelBgLight :
-                        (isSelected ? moduleColor.withAlpha(0.4f) : moduleColor.withAlpha(0.2f)));
-            g.fillRoundedRectangle(moduleBounds, 4.0f);
-
-            // Border
-            g.setColour(isSelected ? moduleColor : moduleColor.withAlpha(0.5f));
-            g.drawRoundedRectangle(moduleBounds, 4.0f, isSelected ? 2.0f : 1.0f);
-
-            // Module indicator (active/bypass)
-            float indicatorY = moduleBounds.getBottom() + 3.0f;
-            g.setColour(isBypassed ? AutomasterColors::textMuted : moduleColor);
-            g.fillEllipse(moduleBounds.getCentreX() - 3.0f, indicatorY, 6.0f, 6.0f);
-        }
-
-        // Title
-        g.setColour(AutomasterColors::textSecondary);
-        g.setFont(10.0f);
-        g.drawText("SIGNAL CHAIN", bounds.getX(), bounds.getY() + 3.0f,
-                   bounds.getWidth(), 15.0f, juce::Justification::centred);
+        // Simple dark background
+        g.setColour(juce::Colour(0xFF1a1a1a));
+        g.fillRoundedRectangle(bounds, 4.0f);
     }
 
     void resized() override
     {
-        auto bounds = getLocalBounds().reduced(10, 5);
-        float buttonWidth = bounds.getWidth() / 4.0f;
+        auto bounds = getLocalBounds().reduced(2, 4);
+        int buttonWidth = bounds.getWidth() / 4;
+        int gap = 4;
 
         for (int i = 0; i < 4; ++i)
         {
             moduleButtons[i].setBounds(
-                bounds.getX() + static_cast<int>(i * buttonWidth),
-                bounds.getBottom() - 25,
-                static_cast<int>(buttonWidth) - 5,
-                22
+                bounds.getX() + i * buttonWidth + gap / 2,
+                bounds.getY(),
+                buttonWidth - gap,
+                bounds.getHeight()
             );
         }
     }
@@ -158,6 +92,7 @@ private:
         for (int i = 0; i < 4; ++i)
         {
             bool isSelected = (selectedModule == static_cast<Module>(i));
+            bool isBypassed = isModuleBypassed(static_cast<Module>(i));
 
             juce::Colour moduleColor;
             switch (static_cast<Module>(i))
@@ -168,10 +103,15 @@ private:
                 case Module::Limiter:    moduleColor = AutomasterColors::limiterColor; break;
             }
 
+            if (isBypassed)
+                moduleColor = AutomasterColors::textMuted;
+
             moduleButtons[i].setColour(juce::TextButton::buttonColourId,
-                isSelected ? moduleColor : AutomasterColors::panelBgLight);
+                isSelected ? moduleColor : juce::Colour(0xFF2a2a2a));
+            moduleButtons[i].setColour(juce::TextButton::buttonOnColourId, moduleColor);
             moduleButtons[i].setColour(juce::TextButton::textColourOffId,
-                isSelected ? AutomasterColors::textPrimary : AutomasterColors::textSecondary);
+                isSelected ? juce::Colours::white : AutomasterColors::textSecondary);
+            moduleButtons[i].setColour(juce::TextButton::textColourOnId, juce::Colours::white);
         }
 
         repaint();

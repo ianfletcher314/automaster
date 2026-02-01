@@ -225,7 +225,7 @@ public:
 
         // Value display
         g.setColour(AutomasterColors::textPrimary);
-        g.setFont(juce::Font(24.0f, juce::Font::bold));
+        g.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
 
         juce::String valueStr = currentValue > -60.0f ?
             juce::String(currentValue, 1) : "-∞";
@@ -355,7 +355,7 @@ public:
 
         // Percentage text
         g.setColour(AutomasterColors::textPrimary);
-        g.setFont(juce::Font(14.0f, juce::Font::bold));
+        g.setFont(juce::FontOptions(14.0f).withStyle("Bold"));
         g.drawText(juce::String(static_cast<int>(match)) + "%", bounds.toNearestInt(),
                    juce::Justification::centred);
     }

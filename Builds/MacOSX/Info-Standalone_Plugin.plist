@@ -8,7 +8,7 @@
     <key>CFBundleIconFile</key>
     <string></string>
     <key>CFBundleIdentifier</key>
-    <string>com.fletcher.automaster</string>
+    <string>com.Fletcher.Automaster</string>
     <key>CFBundleName</key>
     <string>Automaster</string>
     <key>CFBundleDisplayName</key>
@@ -22,7 +22,7 @@
     <key>CFBundleVersion</key>
     <string>1.0.0</string>
     <key>NSHumanReadableCopyright</key>
-    <string>2024 Fletcher</string>
+    <string>2025</string>
     <key>NSHighResolutionCapable</key>
     <true/>
   </dict>

@@ -94,18 +94,28 @@ private:
     void showModulePanel(ProcessingChainView::Module module);
     void updateMeters();
 
-    // Layout helpers
+    // Layout helpers - tabbed view (legacy)
     void layoutCurrentModule(juce::Rectangle<int> area);
     void layoutEQ(juce::Rectangle<int> area);
     void layoutCompressor(juce::Rectangle<int> area);
     void layoutStereo(juce::Rectangle<int> area);
     void layoutLimiter(juce::Rectangle<int> area);
 
+    // Layout helpers - all-in-one view
+    void layoutEQAll(juce::Rectangle<int> area);
+    void layoutCompressorAll(juce::Rectangle<int> area);
+    void layoutStereoAll(juce::Rectangle<int> area);
+    void layoutLimiterAll(juce::Rectangle<int> area);
+    void layoutMeters(juce::Rectangle<int> area);
+    void layoutMeterStrip(juce::Rectangle<int> area);
+    void layoutMetersVertical(juce::Rectangle<int> area);
+
     // Section painting helpers
     void paintEQSections(juce::Graphics& g, juce::Rectangle<int> area);
     void paintCompressorSections(juce::Graphics& g, juce::Rectangle<int> area);
     void paintStereoSections(juce::Graphics& g, juce::Rectangle<int> area);
     void paintLimiterSections(juce::Graphics& g, juce::Rectangle<int> area);
+    void paintAllModules(juce::Graphics& g);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomasterAudioProcessorEditor)
 };

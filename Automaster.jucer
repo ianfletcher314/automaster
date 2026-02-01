@@ -3,10 +3,10 @@
 <JUCERPROJECT id="AUTMSTR1" name="Automaster" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" companyName="Fletcher"
               companyCopyright="2025" companyWebsite="https://github.com/ianfletcher314/automaster"
-              pluginFormats="buildAU,buildVST3" pluginCharacteristicsValue=""
+              pluginFormats="buildAU,buildVST3,buildStandalone" pluginCharacteristicsValue=""
               pluginName="Automaster" pluginDesc="AI-powered automatic mastering plugin"
-              pluginManufacturer="Fletcher" pluginManufacturerCode="Flet"
-              pluginCode="Auto" pluginVST3Category="Fx,Mastering" pluginAUMainType="'aufx'">
+              pluginManufacturer="Fletcher" pluginManufacturerCode="Flet" pluginCode="Auto"
+              pluginVST3Category="Fx,Mastering" pluginAUMainType="'aufx'" cppLanguageStandard="20">
   <MAINGROUP id="MAINGRP" name="Automaster">
     <GROUP id="SOURCE" name="Source">
       <FILE id="PROCSR" name="PluginProcessor.cpp" compile="1" resource="0"
@@ -21,7 +21,8 @@
       </GROUP>
       <GROUP id="UI" name="UI">
         <FILE id="LAF" name="LookAndFeel.h" compile="0" resource="0" file="Source/UI/LookAndFeel.h"/>
-        <FILE id="METERS" name="MeterComponents.h" compile="0" resource="0" file="Source/UI/MeterComponents.h"/>
+        <FILE id="METERS" name="MeterComponents.h" compile="0" resource="0"
+              file="Source/UI/MeterComponents.h"/>
       </GROUP>
     </GROUP>
   </MAINGROUP>
@@ -47,10 +48,22 @@
         <MODULEPATH id="juce_graphics" path="/Users/ianfletcher/JUCE/modules"/>
         <MODULEPATH id="juce_gui_basics" path="/Users/ianfletcher/JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="/Users/ianfletcher/JUCE/modules"/>
+        <MODULEPATH id="gin" path="/Users/ianfletcher/Gin/modules"/>
+        <MODULEPATH id="gin_dsp" path="/Users/ianfletcher/Gin/modules"/>
+        <MODULEPATH id="gin_gui" path="/Users/ianfletcher/Gin/modules"/>
+        <MODULEPATH id="gin_graphics" path="/Users/ianfletcher/Gin/modules"/>
+        <MODULEPATH id="gin_plugin" path="/Users/ianfletcher/Gin/modules"/>
+        <MODULEPATH id="gin_simd" path="../Gin/modules"/>
       </MODULEPATHS>
     </XCODE_MAC>
   </EXPORTFORMATS>
   <MODULES>
+    <MODULE id="gin" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="gin_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="gin_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="gin_gui" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="gin_plugin" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="gin_simd" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>

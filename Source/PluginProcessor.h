@@ -1,6 +1,6 @@
 #pragma once
 
-#include <juce_audio_processors/juce_audio_processors.h>
+#include <gin_plugin/gin_plugin.h>
 #include "DSP/MasteringChain.h"
 #include "DSP/AnalysisEngine.h"
 #include "DSP/ParameterGenerator.h"
@@ -9,7 +9,7 @@
 #include "AI/LearningSystem.h"
 #include "AI/FeatureExtractor.h"
 
-class AutomasterAudioProcessor : public juce::AudioProcessor
+class AutomasterAudioProcessor : public gin::Processor
 {
 public:
     AutomasterAudioProcessor();
@@ -24,25 +24,6 @@ public:
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
-
-    const juce::String getName() const override { return JucePlugin_Name; }
-
-    bool acceptsMidi() const override { return false; }
-    bool producesMidi() const override { return false; }
-    bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
-
-    int getNumPrograms() override { return 1; }
-    int getCurrentProgram() override { return 0; }
-    void setCurrentProgram(int index) override {}
-    const juce::String getProgramName(int index) override { return {}; }
-    void changeProgramName(int index, const juce::String& newName) override {}
-
-    void getStateInformation(juce::MemoryBlock& destData) override;
-    void setStateInformation(const void* data, int sizeInBytes) override;
-
-    // Parameter access
-    juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
     // Module access for UI
     MasteringChain& getMasteringChain() { return masteringChain; }
@@ -64,7 +45,7 @@ public:
     void recordUserAdjustment();
 
     // A/B/C/D comparison states
-    void storeState(int slot);  // 0-3 for A-D
+    void storeState(int slot);
     void recallState(int slot);
 
     // Get current generated parameters for UI display
@@ -73,8 +54,52 @@ public:
         return lastGeneratedParams;
     }
 
+    // Parameter pointers for UI access
+    // Global
+    gin::Parameter::Ptr inputGain;
+    gin::Parameter::Ptr outputGain;
+    gin::Parameter::Ptr targetLUFS;
+    gin::Parameter::Ptr autoMasterEnabled;
+
+    // EQ
+    gin::Parameter::Ptr hpfFreq;
+    gin::Parameter::Ptr hpfEnabled;
+    gin::Parameter::Ptr lpfFreq;
+    gin::Parameter::Ptr lpfEnabled;
+    gin::Parameter::Ptr lowShelfFreq;
+    gin::Parameter::Ptr lowShelfGain;
+    gin::Parameter::Ptr highShelfFreq;
+    gin::Parameter::Ptr highShelfGain;
+    std::array<gin::Parameter::Ptr, 4> bandFreq;
+    std::array<gin::Parameter::Ptr, 4> bandGain;
+    std::array<gin::Parameter::Ptr, 4> bandQ;
+    gin::Parameter::Ptr eqBypass;
+
+    // Compressor
+    gin::Parameter::Ptr lowMidXover;
+    gin::Parameter::Ptr midHighXover;
+    std::array<gin::Parameter::Ptr, 3> compThreshold;
+    std::array<gin::Parameter::Ptr, 3> compRatio;
+    std::array<gin::Parameter::Ptr, 3> compAttack;
+    std::array<gin::Parameter::Ptr, 3> compRelease;
+    std::array<gin::Parameter::Ptr, 3> compMakeup;
+    gin::Parameter::Ptr compBypass;
+
+    // Stereo
+    gin::Parameter::Ptr globalWidth;
+    gin::Parameter::Ptr lowWidth;
+    gin::Parameter::Ptr midWidth;
+    gin::Parameter::Ptr highWidth;
+    gin::Parameter::Ptr monoBassFreq;
+    gin::Parameter::Ptr monoBassEnabled;
+    gin::Parameter::Ptr stereoBypass;
+
+    // Limiter
+    gin::Parameter::Ptr ceiling;
+    gin::Parameter::Ptr limiterRelease;
+    gin::Parameter::Ptr limiterBypass;
+
 private:
-    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void updateProcessingFromParameters();
 
     // Processing
@@ -102,53 +127,6 @@ private:
         bool isValid = false;
     };
     std::array<SavedState, 4> comparisonStates;
-
-    // Parameter tree
-    juce::AudioProcessorValueTreeState apvts;
-
-    // Cached parameter pointers
-    std::atomic<float>* inputGainParam = nullptr;
-    std::atomic<float>* outputGainParam = nullptr;
-    std::atomic<float>* targetLUFSParam = nullptr;
-    std::atomic<float>* autoMasterEnabledParam = nullptr;
-
-    // EQ parameters
-    std::atomic<float>* hpfFreqParam = nullptr;
-    std::atomic<float>* hpfEnabledParam = nullptr;
-    std::atomic<float>* lpfFreqParam = nullptr;
-    std::atomic<float>* lpfEnabledParam = nullptr;
-    std::atomic<float>* lowShelfFreqParam = nullptr;
-    std::atomic<float>* lowShelfGainParam = nullptr;
-    std::atomic<float>* highShelfFreqParam = nullptr;
-    std::atomic<float>* highShelfGainParam = nullptr;
-    std::array<std::atomic<float>*, 4> bandFreqParams = {};
-    std::array<std::atomic<float>*, 4> bandGainParams = {};
-    std::array<std::atomic<float>*, 4> bandQParams = {};
-    std::atomic<float>* eqBypassParam = nullptr;
-
-    // Compressor parameters
-    std::atomic<float>* lowMidXoverParam = nullptr;
-    std::atomic<float>* midHighXoverParam = nullptr;
-    std::array<std::atomic<float>*, 3> compThresholdParams = {};
-    std::array<std::atomic<float>*, 3> compRatioParams = {};
-    std::array<std::atomic<float>*, 3> compAttackParams = {};
-    std::array<std::atomic<float>*, 3> compReleaseParams = {};
-    std::array<std::atomic<float>*, 3> compMakeupParams = {};
-    std::atomic<float>* compBypassParam = nullptr;
-
-    // Stereo parameters
-    std::atomic<float>* globalWidthParam = nullptr;
-    std::atomic<float>* lowWidthParam = nullptr;
-    std::atomic<float>* midWidthParam = nullptr;
-    std::atomic<float>* highWidthParam = nullptr;
-    std::atomic<float>* monoBassFreqParam = nullptr;
-    std::atomic<float>* monoBassEnabledParam = nullptr;
-    std::atomic<float>* stereoBypassParam = nullptr;
-
-    // Limiter parameters
-    std::atomic<float>* ceilingParam = nullptr;
-    std::atomic<float>* limiterReleaseParam = nullptr;
-    std::atomic<float>* limiterBypassParam = nullptr;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomasterAudioProcessor)
 };
