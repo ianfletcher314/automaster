@@ -41,6 +41,15 @@ public:
     void triggerAutoMaster();
     void applyGeneratedParameters(const ParameterGenerator::GeneratedParameters& params);
 
+    // Accumulation controls (Ozone-style workflow)
+    void startAnalysis();
+    void stopAnalysis();
+    bool isAnalyzing() const { return analysisEngine.isAccumulationActive(); }
+    bool hasValidAnalysis() const { return analysisEngine.hasValidAccumulation(); }
+    float getAnalysisProgress() const { return analysisEngine.getAccumulationProgress(); }
+    float getAnalysisTimeSeconds() const { return analysisEngine.getAccumulationTimeSeconds(); }
+    void resetAnalysis() { analysisEngine.resetAccumulation(); }
+
     // Record user adjustment for learning
     void recordUserAdjustment();
 

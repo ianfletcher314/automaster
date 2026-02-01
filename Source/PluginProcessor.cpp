@@ -317,9 +317,30 @@ void AutomasterAudioProcessor::clearReference()
     rulesEngine.setMode(RulesEngine::Mode::Instant);
 }
 
+void AutomasterAudioProcessor::startAnalysis()
+{
+    analysisEngine.startAccumulation();
+}
+
+void AutomasterAudioProcessor::stopAnalysis()
+{
+    analysisEngine.stopAccumulation();
+}
+
 void AutomasterAudioProcessor::triggerAutoMaster()
 {
-    auto results = analysisEngine.getResults();
+    // Use accumulated analysis if available (Ozone-style), otherwise use real-time
+    AnalysisEngine::AnalysisResults results;
+
+    if (analysisEngine.hasValidAccumulation())
+    {
+        results = analysisEngine.getAccumulatedResults();
+    }
+    else
+    {
+        results = analysisEngine.getResults();
+    }
+
     rulesEngine.setTargetLUFS(targetLUFS->getProcValue());
 
     // Generate parameters

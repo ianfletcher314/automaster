@@ -41,6 +41,11 @@ private:
     gin::Knob targetLUFSKnob;
     juce::TextButton autoMasterButton;
 
+    // Analysis section (Ozone-style workflow)
+    juce::TextButton analyzeButton;
+    double analysisProgress = 0.0;
+    std::unique_ptr<juce::ProgressBar> analysisProgressBar;
+
     // Processing chain view
     ProcessingChainView chainView;
 

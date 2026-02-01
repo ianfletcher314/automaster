@@ -382,6 +382,34 @@ void AutomasterAudioProcessorEditor::setupModeSection()
     autoMasterButton.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
     autoMasterButton.onClick = [this]() { proc.triggerAutoMaster(); };
     addAndMakeVisible(autoMasterButton);
+
+    // Analyze button (Ozone-style workflow)
+    analyzeButton.setButtonText("ANALYZE");
+    analyzeButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF2a2a2a));
+    analyzeButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xFFFF6B35));  // Orange when active
+    analyzeButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    analyzeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFF00D4AA));
+    analyzeButton.setClickingTogglesState(true);
+    analyzeButton.onClick = [this]()
+    {
+        if (analyzeButton.getToggleState())
+        {
+            proc.startAnalysis();
+            analyzeButton.setButtonText("STOP");
+        }
+        else
+        {
+            proc.stopAnalysis();
+            analyzeButton.setButtonText("ANALYZE");
+        }
+    };
+    addAndMakeVisible(analyzeButton);
+
+    // Progress bar for analysis
+    analysisProgressBar = std::make_unique<juce::ProgressBar>(analysisProgress);
+    analysisProgressBar->setColour(juce::ProgressBar::backgroundColourId, juce::Colour(0xFF1a1a1a));
+    analysisProgressBar->setColour(juce::ProgressBar::foregroundColourId, juce::Colour(0xFFFF6B35));
+    addAndMakeVisible(*analysisProgressBar);
 }
 
 void AutomasterAudioProcessorEditor::setupModulePanels()
@@ -553,6 +581,13 @@ void AutomasterAudioProcessorEditor::resized()
     // Header bar
     auto header = bounds.removeFromTop(kHeaderHeight).reduced(kPadding, 3);
     titleLabel.setBounds(header.removeFromLeft(100));
+
+    // Analysis section - ANALYZE button + progress bar
+    analyzeButton.setBounds(header.removeFromLeft(70).reduced(1));
+    header.removeFromLeft(2);
+    analysisProgressBar->setBounds(header.removeFromLeft(60).reduced(0, 6));
+    header.removeFromLeft(kGap);
+
     autoMasterButton.setBounds(header.removeFromLeft(90).reduced(1));
     header.removeFromLeft(kGap);
     targetLUFSKnob.setBounds(header.removeFromLeft(44));
@@ -1448,4 +1483,41 @@ void AutomasterAudioProcessorEditor::timerCallback()
 {
     updateMeters();
     spectrumAnalyzer.repaint();  // Update EQ curve display
+
+    // Update analysis state (Ozone-style workflow)
+    bool isAnalyzing = proc.isAnalyzing();
+    bool hasAnalysis = proc.hasValidAnalysis();
+
+    // Update progress bar
+    analysisProgress = proc.getAnalysisProgress();
+
+    // Update button state
+    if (isAnalyzing)
+    {
+        analyzeButton.setToggleState(true, juce::dontSendNotification);
+        float seconds = proc.getAnalysisTimeSeconds();
+        analyzeButton.setButtonText(juce::String::formatted("%.1fs", seconds));
+    }
+    else if (hasAnalysis)
+    {
+        analyzeButton.setToggleState(false, juce::dontSendNotification);
+        analyzeButton.setButtonText("READY");
+        analyzeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFF00FF88));  // Green when ready
+    }
+    else
+    {
+        analyzeButton.setToggleState(false, juce::dontSendNotification);
+        analyzeButton.setButtonText("ANALYZE");
+        analyzeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFF00D4AA));  // Cyan default
+    }
+
+    // Update Auto Master button to show if using accumulated data
+    if (hasAnalysis)
+    {
+        autoMasterButton.setButtonText("AUTO MASTER*");  // Asterisk indicates accumulated data
+    }
+    else
+    {
+        autoMasterButton.setButtonText("AUTO MASTER");
+    }
 }
