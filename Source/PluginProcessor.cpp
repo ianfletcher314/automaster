@@ -89,7 +89,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                gin::SmoothingType(0.05f));
     }
 
-    eqBypass = addExtParam("eqBypass", "EQ Bypass", "Bypass", "",
+    eqBypass = addExtParam("eqBypass", "EQ Bypass", "", "",
                            {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                            gin::SmoothingType(0.0f));
 
@@ -134,7 +134,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                     gin::SmoothingType(0.02f));
     }
 
-    compBypass = addExtParam("compBypass", "Comp Bypass", "Bypass", "",
+    compBypass = addExtParam("compBypass", "Comp Bypass", "", "",
                              {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                              gin::SmoothingType(0.0f));
 
@@ -163,7 +163,7 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                   {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                                   gin::SmoothingType(0.0f));
 
-    stereoBypass = addExtParam("stereoBypass", "Stereo Bypass", "Bypass", "",
+    stereoBypass = addExtParam("stereoBypass", "Stereo Bypass", "", "",
                                {0.0f, 1.0f, 1.0f, 1.0f}, 0.0f,
                                gin::SmoothingType(0.0f));
 
