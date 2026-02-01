@@ -7,7 +7,8 @@
 
 class AutomasterAudioProcessorEditor : public gin::ProcessorEditor,
                                         public juce::FileDragAndDropTarget,
-                                        private juce::KeyListener
+                                        private juce::KeyListener,
+                                        private juce::Timer
 {
 public:
     AutomasterAudioProcessorEditor(AutomasterAudioProcessor&);
@@ -19,6 +20,7 @@ public:
     bool isInterestedInFileDrag(const juce::StringArray& files) override;
     void filesDropped(const juce::StringArray& files, int x, int y) override;
     bool keyPressed(const juce::KeyPress& key, juce::Component* originatingComponent) override;
+    void timerCallback() override;
 
 private:
     AutomasterAudioProcessor& proc;

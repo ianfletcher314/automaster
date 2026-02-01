@@ -104,6 +104,9 @@ AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioPr
     showModulePanel(ProcessingChainView::Module::EQ);
     addKeyListener(this);  // Listen for keys from all child components
     setSize(kWindowWidth, kWindowHeight);
+
+    // Start meter update timer
+    startTimerHz(30);
 }
 
 AutomasterAudioProcessorEditor::~AutomasterAudioProcessorEditor() {}
@@ -215,6 +218,9 @@ void AutomasterAudioProcessorEditor::setupReferenceSection()
         });
     };
     addAndMakeVisible(loadRefButton);
+
+    // Match indicator shows how close we are to reference
+    addAndMakeVisible(matchIndicator);
 }
 
 void AutomasterAudioProcessorEditor::setupModeSection()
@@ -405,6 +411,9 @@ void AutomasterAudioProcessorEditor::resized()
     profileCombo.setBounds(header.removeFromLeft(90).reduced(0, 2));
     header.removeFromLeft(kGap);
     loadRefButton.setBounds(header.removeFromLeft(60).reduced(0, 2));
+    header.removeFromLeft(kGap);
+    matchIndicator.setBounds(header.removeFromLeft(80).reduced(0, 2));
+    matchIndicator.setVisible(proc.hasReference());
 
     settingsButton.setBounds(header.removeFromRight(50).reduced(0, 2));
     header.removeFromRight(kGap);
@@ -1215,7 +1224,9 @@ void AutomasterAudioProcessorEditor::updateMeters()
     limiterGRMeter.setGainReduction(chain.getLimiter().getGainReduction());
     correlationMeter.setCorrelation(analysis.getCorrelation());
 
-    if (proc.hasReference())
+    bool hasRef = proc.hasReference();
+    matchIndicator.setVisible(hasRef);
+    if (hasRef)
         matchIndicator.setMatch(analysis.getReferenceMatchScore());
 }
 
@@ -1245,4 +1256,9 @@ void AutomasterAudioProcessorEditor::filesDropped(const juce::StringArray& files
             }
         }
     }
+}
+
+void AutomasterAudioProcessorEditor::timerCallback()
+{
+    updateMeters();
 }
