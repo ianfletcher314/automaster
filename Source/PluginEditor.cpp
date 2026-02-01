@@ -1385,13 +1385,9 @@ void AutomasterAudioProcessorEditor::paintEQBandIndicators(juce::Graphics& g, ju
         int dotX = bandArea.getX() + (bandArea.getWidth() + kGap + gainArea.getWidth()) / 2 - 4;
         int dotY = bandArea.getY() - 10;
 
-        // Colored dot
+        // Colored dot (no number label needed - knob colors indicate the band)
         g.setColour(color);
         g.fillEllipse((float)dotX, (float)dotY, 8.0f, 8.0f);
-
-        // Band number label
-        g.setColour(juce::Colours::white);
-        g.drawText(juce::String(i + 1), dotX - 4, dotY - 1, 16, 10, juce::Justification::centred);
     }
 }
 
