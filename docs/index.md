@@ -1,6 +1,5 @@
-# Building AutoMaster: An AI-Powered Mastering Plugin
-
-**How we built an intelligent mastering suite from scratch using JUCE and Claude**
+# Building AutoMaster
+### An AI-Powered Mastering Plugin
 
 ---
 
@@ -14,7 +13,6 @@ Professional mastering requires years of experience to develop the ear for subtl
 
 - **JUCE Framework** — Industry-standard C++ framework for audio plugins
 - **gin Library** — Parameter management and UI components
-- **Claude** — AI pair programming for architecture decisions and debugging
 - **Xcode** — Build toolchain for AU/VST3 on macOS
 
 ## Key Challenges We Overcame
@@ -48,7 +46,7 @@ The auto-master feature needed to make smart decisions:
 - **Stereo analysis** — Correlation and width measurement to guide stereo imaging
 - **Genre detection** — Automatic genre classification to apply appropriate processing profiles
 
-## Architecture Highlights
+## Architecture
 
 ```
 Audio Input
@@ -80,19 +78,9 @@ Audio Input
 
 AutoMaster is under active development. Current focus areas:
 
-- **Waveform display** — Visual feedback of the audio being processed
-- **A/B/C/D memory slots** — Store and compare different mastering approaches
-- **UX refinements** — Continued polish on the interface
-
-## Built With Claude
-
-This project was developed using Claude as an AI pair programmer. From architecture decisions to debugging DSP math to writing this very article—Claude participated in every stage of development.
-
-The collaboration proved especially valuable for:
-- Debugging complex signal flow issues
-- Iterating quickly on UI layouts with screenshot feedback
-- Researching DSP techniques (oversampling, soft clipping, loudness metering)
-- Code review and refactoring
+- Waveform display
+- A/B/C/D memory slots for comparing different masters
+- Continued UX refinements
 
 ---
 
