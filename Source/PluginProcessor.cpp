@@ -204,6 +204,9 @@ void AutomasterAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
 
     masteringChain.prepare(sampleRate, samplesPerBlock);
     analysisEngine.prepare(sampleRate, samplesPerBlock);
+
+    // Report limiter latency to host for delay compensation
+    setLatencySamples(masteringChain.getLatencySamples());
 }
 
 void AutomasterAudioProcessor::releaseResources()

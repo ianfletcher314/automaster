@@ -1,7 +1,9 @@
 #pragma once
 
 #include "DSPUtils.h"
+#include <juce_dsp/juce_dsp.h>
 #include <vector>
+#include <cmath>
 
 class Limiter
 {
@@ -17,10 +19,16 @@ public:
         lookaheadSamples = static_cast<int>(sampleRate * 0.005);
         lookaheadBufferL.resize(lookaheadSamples, 0.0f);
         lookaheadBufferR.resize(lookaheadSamples, 0.0f);
+        gainBuffer.resize(lookaheadSamples, 1.0f);
 
-        // True peak detector
-        truePeakL.prepare(sampleRate);
-        truePeakR.prepare(sampleRate);
+        // 4x oversampling for true peak detection (ITU-R BS.1770 compliant)
+        oversampling = std::make_unique<juce::dsp::Oversampling<float>>(
+            2,  // numChannels
+            2,  // order (2^2 = 4x)
+            juce::dsp::Oversampling<float>::filterHalfBandFIREquiripple,
+            true  // isMaxQuality
+        );
+        oversampling->initProcessing(static_cast<size_t>(samplesPerBlock));
 
         updateCoefficients();
         reset();
@@ -30,13 +38,16 @@ public:
     {
         std::fill(lookaheadBufferL.begin(), lookaheadBufferL.end(), 0.0f);
         std::fill(lookaheadBufferR.begin(), lookaheadBufferR.end(), 0.0f);
+        std::fill(gainBuffer.begin(), gainBuffer.end(), 1.0f);
         lookaheadIndex = 0;
 
-        envelope = 0.0f;
+        fastEnvelope = 0.0f;
+        slowEnvelope = 0.0f;
+        smoothedGain = 1.0f;
         gainReduction.store(0.0f);
 
-        truePeakL.reset();
-        truePeakR.reset();
+        if (oversampling)
+            oversampling->reset();
     }
 
     void process(juce::AudioBuffer<float>& buffer)
@@ -49,6 +60,37 @@ public:
 
         float ceilingLinear = DSPUtils::decibelsToLinear(ceiling);
         float maxGR = 0.0f;
+
+        // Create audio block for oversampling
+        juce::dsp::AudioBlock<float> inputBlock(buffer);
+
+        // Upsample for true peak detection
+        auto oversampledBlock = oversampling->processSamplesUp(inputBlock);
+
+        // Find true peaks in oversampled domain
+        const size_t osNumSamples = oversampledBlock.getNumSamples();
+        const int osFactor = static_cast<int>(osNumSamples) / numSamples;
+
+        // Temporary storage for per-sample true peaks
+        std::vector<float> truePeaks(numSamples, 0.0f);
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            float maxPeak = 0.0f;
+            for (int os = 0; os < osFactor; ++os)
+            {
+                int osIndex = i * osFactor + os;
+                for (int ch = 0; ch < numChannels; ++ch)
+                {
+                    float absVal = std::abs(oversampledBlock.getSample(ch, osIndex));
+                    maxPeak = std::max(maxPeak, absVal);
+                }
+            }
+            truePeaks[i] = maxPeak;
+        }
+
+        // Downsample (we only needed the sidechain analysis)
+        oversampling->processSamplesDown(inputBlock);
 
         for (int sample = 0; sample < numSamples; ++sample)
         {
@@ -64,37 +106,49 @@ public:
             if (numChannels > 1)
                 lookaheadBufferR[lookaheadIndex] = inputR;
 
-            lookaheadIndex = (lookaheadIndex + 1) % lookaheadSamples;
-
-            // Detect peak level (use current input for lookahead detection)
-            float peakL = truePeakEnabled ? truePeakL.process(inputL) : std::abs(inputL);
-            float peakR = truePeakEnabled ? truePeakR.process(inputR) : std::abs(inputR);
-            float peak = std::max(peakL, peakR);
+            // Use true peak from oversampled detection
+            float peak = truePeaks[sample];
 
             // Calculate required gain reduction
-            float requiredGR = 0.0f;
+            float targetGain = 1.0f;
             if (peak > ceilingLinear)
             {
-                float peakDB = DSPUtils::linearToDecibels(peak);
-                requiredGR = peakDB - ceiling;
+                targetGain = ceilingLinear / peak;
             }
 
-            // Apply envelope (instant attack, smooth release)
-            if (requiredGR > envelope)
-            {
-                envelope = requiredGR;  // Instant attack
-            }
+            // Program-dependent release using dual envelopes
+            // Fast envelope: catches transients, releases quickly
+            if (targetGain < fastEnvelope)
+                fastEnvelope = targetGain;  // Instant attack
             else
-            {
-                envelope = releaseCoeff * envelope;  // Smooth release
-            }
+                fastEnvelope = fastReleaseCoeff * fastEnvelope + (1.0f - fastReleaseCoeff) * targetGain;
+
+            // Slow envelope: handles sustained material, releases slowly
+            if (targetGain < slowEnvelope)
+                slowEnvelope = slowAttackCoeff * slowEnvelope + (1.0f - slowAttackCoeff) * targetGain;
+            else
+                slowEnvelope = slowReleaseCoeff * slowEnvelope + (1.0f - slowReleaseCoeff) * targetGain;
+
+            // Use minimum of both envelopes (most restrictive)
+            float envelope = std::min(fastEnvelope, slowEnvelope);
+
+            // Store in gain buffer for lookahead smoothing
+            gainBuffer[lookaheadIndex] = envelope;
+
+            // Find minimum gain in lookahead window (anticipate peaks)
+            float minGain = 1.0f;
+            for (int j = 0; j < lookaheadSamples; ++j)
+                minGain = std::min(minGain, gainBuffer[j]);
+
+            // Smooth gain transitions to prevent clicks
+            float gainSmoothCoeff = (minGain < smoothedGain) ? 0.9f : gainSmoothReleaseCoeff;
+            smoothedGain = gainSmoothCoeff * smoothedGain + (1.0f - gainSmoothCoeff) * minGain;
+
+            lookaheadIndex = (lookaheadIndex + 1) % lookaheadSamples;
 
             // Apply gain reduction to delayed signal
-            float gainDB = -envelope;
-            float gainLinear = DSPUtils::decibelsToLinear(gainDB);
-
-            delayedL *= gainLinear;
-            delayedR *= gainLinear;
+            delayedL *= smoothedGain;
+            delayedR *= smoothedGain;
 
             // Apply output gain if targeting LUFS
             if (autoGainEnabled)
@@ -103,15 +157,18 @@ public:
                 delayedR *= autoGainLinear;
             }
 
-            // Final safety clip at ceiling
-            delayedL = std::max(-ceilingLinear, std::min(ceilingLinear, delayedL));
-            delayedR = std::max(-ceilingLinear, std::min(ceilingLinear, delayedR));
+            // SOFT CLIP safety (tanh-based) instead of hard clip
+            // This catches any remaining peaks musically
+            delayedL = softClipOutput(delayedL, ceilingLinear);
+            delayedR = softClipOutput(delayedR, ceilingLinear);
 
             buffer.setSample(0, sample, delayedL);
             if (numChannels > 1)
                 buffer.setSample(1, sample, delayedR);
 
-            maxGR = std::max(maxGR, envelope);
+            // Track gain reduction for metering
+            float grDB = DSPUtils::linearToDecibels(smoothedGain);
+            maxGR = std::max(maxGR, -grDB);
         }
 
         gainReduction.store(maxGR);
@@ -161,15 +218,59 @@ public:
     float getRelease() const { return releaseTime; }
     float getTargetLUFS() const { return targetLUFS; }
 
-    // Latency for host compensation
-    int getLatencySamples() const { return lookaheadSamples; }
+    // Latency for host compensation (lookahead + oversampling filter)
+    int getLatencySamples() const
+    {
+        int osLatency = oversampling ? static_cast<int>(oversampling->getLatencyInSamples()) : 0;
+        return lookaheadSamples + osLatency;
+    }
 
 private:
+    // Soft clip using tanh - musical saturation instead of harsh digital clip
+    float softClipOutput(float input, float ceiling)
+    {
+        float normalized = input / ceiling;
+
+        // If already below ceiling, pass through
+        if (std::abs(normalized) <= 1.0f)
+            return input;
+
+        // Soft clip region: use tanh to smoothly approach ceiling
+        float sign = normalized > 0.0f ? 1.0f : -1.0f;
+        float absNorm = std::abs(normalized);
+
+        // tanh soft clip with knee starting at 0.9
+        float knee = 0.9f;
+        if (absNorm > knee)
+        {
+            float excess = absNorm - knee;
+            float softRegion = 1.0f - knee;
+            float clipped = knee + softRegion * std::tanh(excess / softRegion);
+            return sign * clipped * ceiling;
+        }
+
+        return input;
+    }
+
     void updateCoefficients()
     {
         if (currentSampleRate > 0.0)
         {
-            releaseCoeff = std::exp(-1.0f / (static_cast<float>(currentSampleRate) * releaseTime / 1000.0f));
+            // Fast release: 30ms (for transients)
+            float fastReleaseMs = 30.0f;
+            fastReleaseCoeff = std::exp(-1.0f / (static_cast<float>(currentSampleRate) * fastReleaseMs / 1000.0f));
+
+            // Slow attack: 5ms (gradual engagement for sustained)
+            float slowAttackMs = 5.0f;
+            slowAttackCoeff = std::exp(-1.0f / (static_cast<float>(currentSampleRate) * slowAttackMs / 1000.0f));
+
+            // Slow release: user-controlled (default 100ms, range 50-300ms for program-dependent)
+            float slowReleaseMs = releaseTime;
+            slowReleaseCoeff = std::exp(-1.0f / (static_cast<float>(currentSampleRate) * slowReleaseMs / 1000.0f));
+
+            // Gain smoothing release (same as lookahead time for smooth transitions)
+            float smoothMs = (lookaheadSamples / static_cast<float>(currentSampleRate)) * 1000.0f;
+            gainSmoothReleaseCoeff = std::exp(-1.0f / (static_cast<float>(currentSampleRate) * smoothMs / 1000.0f));
         }
     }
 
@@ -186,19 +287,25 @@ private:
     float autoGainLinear = 1.0f;
     bool truePeakEnabled = true;
 
-    // Processing state
-    float releaseCoeff = 0.0f;
-    float envelope = 0.0f;
+    // Processing state - program-dependent dual envelope
+    float fastReleaseCoeff = 0.0f;
+    float slowAttackCoeff = 0.0f;
+    float slowReleaseCoeff = 0.0f;
+    float gainSmoothReleaseCoeff = 0.0f;
+
+    float fastEnvelope = 1.0f;
+    float slowEnvelope = 1.0f;
+    float smoothedGain = 1.0f;
 
     // Lookahead buffer
     std::vector<float> lookaheadBufferL;
     std::vector<float> lookaheadBufferR;
+    std::vector<float> gainBuffer;
     int lookaheadSamples = 0;
     int lookaheadIndex = 0;
 
-    // True peak detection
-    DSPUtils::TruePeakDetector truePeakL;
-    DSPUtils::TruePeakDetector truePeakR;
+    // 4x oversampling for true peak detection
+    std::unique_ptr<juce::dsp::Oversampling<float>> oversampling;
 
     // Metering
     std::atomic<float> gainReduction { 0.0f };
