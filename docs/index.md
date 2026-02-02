@@ -1,6 +1,8 @@
 # Building AutoMaster
 ### An AI-Powered Mastering Plugin
 
+<a href="https://github.com/ianfletcher314/automaster/releases/latest/download/Automaster-macOS.zip" style="display:inline-block;background:#3eb489;color:white;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;margin:20px 0;">Download for macOS</a>
+
 ---
 
 ## What Is AutoMaster?
