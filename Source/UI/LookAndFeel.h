@@ -41,9 +41,14 @@ namespace AutomasterColors
 
     // Module-specific colors
     const juce::Colour eqColor         = juce::Colour(0xff3b82f6);  // Blue
-    const juce::Colour compColor       = juce::Colour(0xfff97316);  // Orange
+    const juce::Colour compColor       = juce::Colour(0xfff97316);  // Orange (for xover knobs)
     const juce::Colour stereoColor     = juce::Colour(0xff8b5cf6);  // Purple
     const juce::Colour limiterColor    = juce::Colour(0xffef4444);  // Red
+
+    // Compressor band colors - distinct for each band
+    const juce::Colour compLowColor    = juce::Colour(0xffef4444);  // Red/warm for low
+    const juce::Colour compMidColor    = juce::Colour(0xff22c55e);  // Green for mid
+    const juce::Colour compHighColor   = juce::Colour(0xff3b82f6);  // Blue for high
 
     // EQ band colors (for visualizer and knob accents)
     const juce::Colour eqBand1         = juce::Colour(0xff22c55e);  // Green

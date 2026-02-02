@@ -114,10 +114,17 @@ AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioPr
         bandQKnobs[i]->getSlider().setLookAndFeel(bandLAF);
     }
 
-    // Compressor knobs (orange)
-    auto compLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::compColor));
-    lowMidXoverKnob.getSlider().setLookAndFeel(compLAF);
-    midHighXoverKnob.getSlider().setLookAndFeel(compLAF);
+    // Compressor crossover knobs (orange)
+    auto compXoverLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(AutomasterColors::compColor));
+    lowMidXoverKnob.getSlider().setLookAndFeel(compXoverLAF);
+    midHighXoverKnob.getSlider().setLookAndFeel(compXoverLAF);
+
+    // Compressor band colors - unique for each band
+    juce::Colour compBandColors[3] = {
+        AutomasterColors::compLowColor,   // Red for low
+        AutomasterColors::compMidColor,   // Green for mid
+        AutomasterColors::compHighColor   // Blue for high
+    };
 
     for (int i = 0; i < 3; ++i)
     {
@@ -127,11 +134,13 @@ AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioPr
         compReleaseKnobs[i] = ownedKnobs.add(new gin::Knob(p.compRelease[i]));
         compMakeupKnobs[i] = ownedKnobs.add(new gin::Knob(p.compMakeup[i]));
 
-        compThresholdKnobs[i]->getSlider().setLookAndFeel(compLAF);
-        compRatioKnobs[i]->getSlider().setLookAndFeel(compLAF);
-        compAttackKnobs[i]->getSlider().setLookAndFeel(compLAF);
-        compReleaseKnobs[i]->getSlider().setLookAndFeel(compLAF);
-        compMakeupKnobs[i]->getSlider().setLookAndFeel(compLAF);
+        // Each band gets its own color
+        auto bandLAF = coloredKnobLAFs.add(new ColoredKnobLookAndFeel(compBandColors[i]));
+        compThresholdKnobs[i]->getSlider().setLookAndFeel(bandLAF);
+        compRatioKnobs[i]->getSlider().setLookAndFeel(bandLAF);
+        compAttackKnobs[i]->getSlider().setLookAndFeel(bandLAF);
+        compReleaseKnobs[i]->getSlider().setLookAndFeel(bandLAF);
+        compMakeupKnobs[i]->getSlider().setLookAndFeel(bandLAF);
     }
 
     // Stereo knobs (purple)
