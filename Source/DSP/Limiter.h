@@ -107,9 +107,14 @@ public:
                 lookaheadBufferR[lookaheadIndex] = inputR;
 
             // Use true peak from oversampled detection
+            // IMPORTANT: Factor in auto-gain so limiter knows what the OUTPUT level will be
             float peak = truePeaks[sample];
+            if (autoGainEnabled)
+            {
+                peak *= autoGainLinear;  // This is what the peak will be AFTER auto-gain
+            }
 
-            // Calculate required gain reduction
+            // Calculate required gain reduction (now accounts for auto-gain)
             float targetGain = 1.0f;
             if (peak > ceilingLinear)
             {
