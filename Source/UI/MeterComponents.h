@@ -271,7 +271,9 @@ public:
 
     void setCorrelation(float corr)
     {
-        correlation = juce::jlimit(-1.0f, 1.0f, corr);
+        // Smooth the correlation value
+        float target = juce::jlimit(-1.0f, 1.0f, corr);
+        correlation = correlation * 0.8f + target * 0.2f;
         repaint();
     }
 
@@ -284,40 +286,50 @@ public:
         g.setColour(AutomasterColors::panelBg);
         g.fillRoundedRectangle(bounds, 3.0f);
 
-        // Center line (mono)
-        g.setColour(AutomasterColors::panelBgLight);
-        g.fillRect(centerX - 0.5f, bounds.getY(), 1.0f, bounds.getHeight());
+        // Scale markings
+        g.setColour(AutomasterColors::panelBgLight.withAlpha(0.5f));
+        g.fillRect(centerX - 0.5f, bounds.getY() + 4.0f, 1.0f, bounds.getHeight() - 8.0f);
 
-        // Indicator position
-        float indicatorX = centerX + (bounds.getWidth() * 0.5f - 4.0f) * correlation;
+        // Quarter marks
+        float quarterW = bounds.getWidth() * 0.25f;
+        g.fillRect(bounds.getX() + quarterW, bounds.getY() + 6.0f, 1.0f, bounds.getHeight() - 12.0f);
+        g.fillRect(bounds.getRight() - quarterW, bounds.getY() + 6.0f, 1.0f, bounds.getHeight() - 12.0f);
+
+        // Indicator position: -1 = left (wide/out of phase), 0 = center, +1 = right (mono)
+        float indicatorX = centerX + (bounds.getWidth() * 0.5f - 6.0f) * correlation;
 
         // Color based on correlation
+        // Green = good stereo (0.3-0.8), Yellow = very wide or narrow, Red = out of phase
         juce::Colour indicatorColor;
-        if (correlation > 0.5f)
-            indicatorColor = AutomasterColors::meterGreen;
-        else if (correlation > 0.0f)
-            indicatorColor = AutomasterColors::meterYellow;
-        else if (correlation > -0.5f)
-            indicatorColor = AutomasterColors::meterOrange;
+        if (correlation < -0.3f)
+            indicatorColor = AutomasterColors::meterRed;  // Out of phase - bad
+        else if (correlation < 0.2f)
+            indicatorColor = AutomasterColors::meterOrange;  // Very wide
+        else if (correlation < 0.9f)
+            indicatorColor = AutomasterColors::meterGreen;  // Good stereo
         else
-            indicatorColor = AutomasterColors::meterRed;
+            indicatorColor = AutomasterColors::meterYellow;  // Very mono
 
         // Draw indicator
         g.setColour(indicatorColor);
-        g.fillRoundedRectangle(indicatorX - 3.0f, bounds.getY() + 2.0f, 6.0f,
-                               bounds.getHeight() - 4.0f, 2.0f);
+        g.fillRoundedRectangle(indicatorX - 4.0f, bounds.getY() + 2.0f, 8.0f,
+                               bounds.getHeight() - 4.0f, 3.0f);
 
-        // Labels
+        // Labels - show what the meter means
         g.setColour(AutomasterColors::textMuted);
-        g.setFont(9.0f);
-        g.drawText("L", bounds.getX(), bounds.getY(), 12.0f, bounds.getHeight(),
+        g.setFont(8.0f);
+        g.drawText("-1", bounds.getX() + 2.0f, bounds.getY(), 14.0f, bounds.getHeight(),
                    juce::Justification::centredLeft);
-        g.drawText("R", bounds.getRight() - 12.0f, bounds.getY(), 12.0f, bounds.getHeight(),
+        g.drawText("+1", bounds.getRight() - 16.0f, bounds.getY(), 14.0f, bounds.getHeight(),
                    juce::Justification::centredRight);
+
+        // Center label
+        g.drawText("CORR", bounds.getCentreX() - 15.0f, bounds.getBottom() - 10.0f, 30.0f, 10.0f,
+                   juce::Justification::centred);
     }
 
 private:
-    float correlation = 1.0f;
+    float correlation = 0.0f;  // Start at center, not pinned right
 };
 
 // Match percentage indicator
