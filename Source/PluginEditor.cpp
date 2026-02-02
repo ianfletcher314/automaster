@@ -1093,8 +1093,9 @@ void AutomasterAudioProcessorEditor::layoutEQAll(juce::Rectangle<int> area)
     // Bypass switch in header (right side, vertically centered)
     auto headerArea = area.removeFromTop(kModuleLabelH);
     auto switchArea = headerArea.removeFromRight(kSwitchWidth + 4);
-    // Position bypass switch in header - offset down to visually center
-    eqBypassSwitch.setBounds(switchArea.getX(), headerArea.getY() + 10, kSwitchWidth + 4, kModuleLabelH - 10);
+    // Center switch in header - nudge down slightly
+    int bypassY = headerArea.getY() + 7;
+    eqBypassSwitch.setBounds(switchArea.getX(), bypassY, kSwitchWidth, 16);
 
     area.removeFromTop(2);  // Gap after header
     area = area.reduced(4, 2);
@@ -1153,8 +1154,9 @@ void AutomasterAudioProcessorEditor::layoutCompressorAll(juce::Rectangle<int> ar
     // Bypass switch in header (right side, vertically centered)
     auto headerArea = area.removeFromTop(kModuleLabelH);
     auto switchArea = headerArea.removeFromRight(kSwitchWidth + 4);
-    // Position bypass switch in header - offset down to visually center
-    compBypassSwitch.setBounds(switchArea.getX(), headerArea.getY() + 10, kSwitchWidth + 4, kModuleLabelH - 10);
+    // Center switch in header - nudge down slightly
+    int bypassY = headerArea.getY() + 7;
+    compBypassSwitch.setBounds(switchArea.getX(), bypassY, kSwitchWidth, 16);
 
     area.removeFromTop(2);  // Gap after header
     area = area.reduced(4, 2);
@@ -1214,8 +1216,9 @@ void AutomasterAudioProcessorEditor::layoutStereoAll(juce::Rectangle<int> area)
     // Bypass switch in header (right side, vertically centered)
     auto headerArea = area.removeFromTop(kModuleLabelH);
     auto switchArea = headerArea.removeFromRight(kSwitchWidth + 4);
-    // Position bypass switch in header - offset down to visually center
-    stereoBypassSwitch.setBounds(switchArea.getX(), headerArea.getY() + 6, kSwitchWidth + 4, kModuleLabelH - 6);
+    // Center switch in header - nudge down slightly
+    int bypassY = headerArea.getY() + 7;
+    stereoBypassSwitch.setBounds(switchArea.getX(), bypassY, kSwitchWidth, 16);
 
     area.removeFromTop(2);  // Gap after header
     area = area.reduced(4, 2);
@@ -1256,8 +1259,9 @@ void AutomasterAudioProcessorEditor::layoutLimiterAll(juce::Rectangle<int> area)
     // Bypass switch in header (right side, vertically centered)
     auto headerArea = area.removeFromTop(kModuleLabelH);
     auto switchArea = headerArea.removeFromRight(kSwitchWidth + 4);
-    // Position bypass switch in header - offset down to visually center
-    limiterBypassSwitch.setBounds(switchArea.getX(), headerArea.getY() + 6, kSwitchWidth + 4, kModuleLabelH - 6);
+    // Center switch in header - nudge down slightly
+    int bypassY = headerArea.getY() + 7;
+    limiterBypassSwitch.setBounds(switchArea.getX(), bypassY, kSwitchWidth, 16);
 
     area.removeFromTop(2);  // Gap after header
     area = area.reduced(4, 2);
