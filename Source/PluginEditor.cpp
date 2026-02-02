@@ -25,7 +25,7 @@ namespace {
     constexpr int kMeterSectionWidth = 36;
 
     // Headers
-    constexpr int kHeaderHeight = 28;
+    constexpr int kHeaderHeight = 50;
     constexpr int kModuleLabelH = 14;
     constexpr int kSectionLabelH = 12;
     constexpr int kTabHeight = 24;
@@ -54,8 +54,7 @@ namespace {
     constexpr int kModuleRow1H = 134;  // label(16) + padding(4) + row1(56) + gap(2) + row2(56) = 134
     constexpr int kModuleRow2H = 80;   // label(16) + padding(4) + row1(56) + extra(4) = 80
 
-    // Window - sized to fit content:
-    // Header(28) + Spectrum(280) + gap(8) + MeterStrip(50) + gap(8) + Row1(134) + gap(8) + Row2(80) + padding(6) = 602
+    // Window - sized to fit content
     constexpr int kWindowWidth = 950;
     constexpr int kWindowHeight = 610;
 }
@@ -204,7 +203,9 @@ AutomasterAudioProcessorEditor::AutomasterAudioProcessorEditor(AutomasterAudioPr
 
 AutomasterAudioProcessorEditor::~AutomasterAudioProcessorEditor()
 {
-    // Clear custom LookAndFeels before sliders are destroyed
+    // Clear custom LookAndFeels before components are destroyed
+    autoMasterButton.setLookAndFeel(nullptr);
+
     // EQ section
     lowShelfFreqKnob.getSlider().setLookAndFeel(nullptr);
     lowShelfGainKnob.getSlider().setLookAndFeel(nullptr);
@@ -293,8 +294,8 @@ bool AutomasterAudioProcessorEditor::keyPressed(const juce::KeyPress& key, juce:
 void AutomasterAudioProcessorEditor::setupTopBar()
 {
     titleLabel.setText("AUTOMASTER", juce::dontSendNotification);
-    titleLabel.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
-    titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xFF00D4AA));
+    titleLabel.setFont(juce::FontOptions(28.0f).withStyle("Bold"));
+    titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(titleLabel);
 
     const char* labels[] = { "A", "B", "C", "D" };
@@ -377,18 +378,17 @@ void AutomasterAudioProcessorEditor::setupModeSection()
     addAndMakeVisible(targetLUFSKnob);
 
     autoMasterButton.setButtonText("AUTO MASTER");
-    autoMasterButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF00D4AA));
-    autoMasterButton.setColour(juce::TextButton::textColourOnId, juce::Colours::black);
-    autoMasterButton.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
+    rainbowButtonLAF = std::make_unique<RainbowButtonLookAndFeel>();
+    autoMasterButton.setLookAndFeel(rainbowButtonLAF.get());
     autoMasterButton.onClick = [this]() { proc.triggerAutoMaster(); };
     addAndMakeVisible(autoMasterButton);
 
-    // Analyze button (Ozone-style workflow)
+    // Analyze button (Ozone-style workflow) - subtle, secondary
     analyzeButton.setButtonText("ANALYZE");
     analyzeButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF2a2a2a));
     analyzeButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xFFFF6B35));  // Orange when active
     analyzeButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-    analyzeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFF00D4AA));
+    analyzeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFF888888));  // Muted gray
     analyzeButton.setClickingTogglesState(true);
     analyzeButton.onClick = [this]()
     {
@@ -578,32 +578,34 @@ void AutomasterAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
 
-    // Header bar
-    auto header = bounds.removeFromTop(kHeaderHeight).reduced(kPadding, 3);
-    titleLabel.setBounds(header.removeFromLeft(100));
+    // Header bar - compact layout
+    auto header = bounds.removeFromTop(kHeaderHeight).reduced(kPadding, 5);
 
-    // Analysis section - ANALYZE button + progress bar
-    analyzeButton.setBounds(header.removeFromLeft(70).reduced(1));
-    header.removeFromLeft(2);
-    analysisProgressBar->setBounds(header.removeFromLeft(60).reduced(0, 6));
-    header.removeFromLeft(kGap);
-
-    autoMasterButton.setBounds(header.removeFromLeft(90).reduced(1));
-    header.removeFromLeft(kGap);
-    targetLUFSKnob.setBounds(header.removeFromLeft(44));
-    header.removeFromLeft(kGap);
-    profileCombo.setBounds(header.removeFromLeft(90).reduced(0, 2));
-    header.removeFromLeft(kGap);
-    loadRefButton.setBounds(header.removeFromLeft(60).reduced(0, 2));
-    header.removeFromLeft(kGap);
-    matchIndicator.setBounds(header.removeFromLeft(80).reduced(0, 2));
-    matchIndicator.setVisible(proc.hasReference());
-
-    settingsButton.setBounds(header.removeFromRight(50).reduced(0, 2));
-    header.removeFromRight(kGap);
-    auto abcdArea = header.removeFromRight(100);
+    // Right side first (so we know how much space is left)
+    settingsButton.setBounds(header.removeFromRight(45).reduced(0, 6));
+    header.removeFromRight(4);
+    auto abcdArea = header.removeFromRight(96);
     for (int i = 0; i < 4; ++i)
-        abcdButtons[i].setBounds(abcdArea.removeFromLeft(24).reduced(1));
+        abcdButtons[i].setBounds(abcdArea.removeFromLeft(24).reduced(1, 6));
+    header.removeFromRight(8);
+
+    // Left side
+    titleLabel.setBounds(header.removeFromLeft(170));
+    header.removeFromLeft(8);
+    analyzeButton.setBounds(header.removeFromLeft(65).reduced(0, 8));
+    header.removeFromLeft(4);
+    analysisProgressBar->setBounds(header.removeFromLeft(45).reduced(0, 12));
+    header.removeFromLeft(8);
+    autoMasterButton.setBounds(header.removeFromLeft(115).reduced(0, 4));
+    header.removeFromLeft(6);
+    targetLUFSKnob.setBounds(header.removeFromLeft(42));
+    header.removeFromLeft(4);
+    profileCombo.setBounds(header.removeFromLeft(80).reduced(0, 8));
+    header.removeFromLeft(4);
+    loadRefButton.setBounds(header.removeFromLeft(55).reduced(0, 8));
+    header.removeFromLeft(4);
+    matchIndicator.setBounds(header.removeFromLeft(60).reduced(0, 8));
+    matchIndicator.setVisible(proc.hasReference());
 
     bounds = bounds.reduced(kPadding, 0);
     bounds.removeFromBottom(kPadding);

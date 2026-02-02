@@ -28,6 +28,7 @@ private:
 
     // Top bar
     juce::Label titleLabel;
+    juce::Component logoComponent;  // Custom painted logo
     std::array<juce::TextButton, 4> abcdButtons;
     juce::TextButton settingsButton;
 
@@ -135,6 +136,8 @@ private:
     juce::OwnedArray<ColoredKnobLookAndFeel> coloredKnobLAFs;
     // Toggle switch LookAndFeels
     juce::OwnedArray<ToggleSwitchLookAndFeel> switchLAFs;
+    // Rainbow button LookAndFeel for Auto Master
+    std::unique_ptr<RainbowButtonLookAndFeel> rainbowButtonLAF;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomasterAudioProcessorEditor)
 };

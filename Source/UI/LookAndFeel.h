@@ -577,6 +577,69 @@ private:
     bool isMouseOver = false;
 };
 
+// Rainbow button LookAndFeel - sophisticated aurora/synthwave gradient
+class RainbowButtonLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                              const juce::Colour&, bool isMouseOver, bool isButtonDown) override
+    {
+        auto bounds = button.getLocalBounds().toFloat().reduced(1.0f);
+        auto cornerSize = 6.0f;
+
+        // Sophisticated aurora gradient - deep jewel tones
+        juce::ColourGradient gradient(
+            juce::Colour(0xFFE040FB), bounds.getX(), bounds.getCentreY(),  // Magenta/pink
+            juce::Colour(0xFF00BCD4), bounds.getRight(), bounds.getCentreY(),  // Teal
+            false);
+
+        // Rich, sophisticated color stops
+        gradient.addColour(0.25, juce::Colour(0xFF7C4DFF));  // Deep purple
+        gradient.addColour(0.5, juce::Colour(0xFF448AFF));   // Rich blue
+        gradient.addColour(0.75, juce::Colour(0xFF00E5FF));  // Cyan
+
+        g.setGradientFill(gradient);
+        g.fillRoundedRectangle(bounds, cornerSize);
+
+        // Subtle inner glow
+        g.setColour(juce::Colours::white.withAlpha(0.1f));
+        g.fillRoundedRectangle(bounds.reduced(2.0f).withHeight(bounds.getHeight() * 0.4f), cornerSize);
+
+        // Darken on press, subtle brighten on hover
+        if (isButtonDown)
+        {
+            g.setColour(juce::Colours::black.withAlpha(0.25f));
+            g.fillRoundedRectangle(bounds, cornerSize);
+        }
+        else if (isMouseOver)
+        {
+            g.setColour(juce::Colours::white.withAlpha(0.12f));
+            g.fillRoundedRectangle(bounds, cornerSize);
+        }
+
+        // Subtle border
+        g.setColour(juce::Colours::white.withAlpha(0.25f));
+        g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
+    }
+
+    void drawButtonText(juce::Graphics& g, juce::TextButton& button,
+                        bool, bool) override
+    {
+        auto bounds = button.getLocalBounds();
+
+        // Bold white text with subtle shadow
+        g.setFont(juce::FontOptions(13.0f).withStyle("Bold"));
+
+        // Subtle shadow
+        g.setColour(juce::Colours::black.withAlpha(0.5f));
+        g.drawText(button.getButtonText(), bounds.translated(1, 1), juce::Justification::centred);
+
+        // Main text
+        g.setColour(juce::Colours::white);
+        g.drawText(button.getButtonText(), bounds, juce::Justification::centred);
+    }
+};
+
 // Custom component for glowing buttons (AI status indicator)
 class GlowButton : public juce::TextButton
 {
