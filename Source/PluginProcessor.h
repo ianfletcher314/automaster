@@ -39,7 +39,7 @@ public:
 
     // Auto-master trigger
     void triggerAutoMaster();
-    void applyGeneratedParameters(const ParameterGenerator::GeneratedParameters& params);
+    void applyGeneratedParameters(const ParameterGenerator::GeneratedParameters& params, float lufsForAutoGain = -100.0f);
 
     // Accumulation controls (Ozone-style workflow)
     void startAnalysis();

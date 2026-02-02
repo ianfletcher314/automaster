@@ -331,14 +331,17 @@ void AutomasterAudioProcessor::triggerAutoMaster()
 {
     // Use accumulated analysis if available (Ozone-style), otherwise use real-time
     AnalysisEngine::AnalysisResults results;
+    float lufsForAutoGain;
 
     if (analysisEngine.hasValidAccumulation())
     {
         results = analysisEngine.getAccumulatedResults();
+        lufsForAutoGain = results.shortTermLUFS;  // Use accumulated average LUFS
     }
     else
     {
         results = analysisEngine.getResults();
+        lufsForAutoGain = analysisEngine.getShortTermLUFS();  // Use real-time LUFS
     }
 
     rulesEngine.setTargetLUFS(targetLUFS->getProcValue());
@@ -351,10 +354,10 @@ void AutomasterAudioProcessor::triggerAutoMaster()
     params = learningSystem.applyLearning(params, genre, 0.5f);
 
     lastGeneratedParams = params;
-    applyGeneratedParameters(params);
+    applyGeneratedParameters(params, lufsForAutoGain);
 }
 
-void AutomasterAudioProcessor::applyGeneratedParameters(const ParameterGenerator::GeneratedParameters& params)
+void AutomasterAudioProcessor::applyGeneratedParameters(const ParameterGenerator::GeneratedParameters& params, float lufsForAutoGain)
 {
     // Apply EQ - using setUserValueNotifingHost for Gin parameters
     lowShelfGain->setUserValueNotifingHost(params.eq.lowShelfGain);
@@ -374,12 +377,11 @@ void AutomasterAudioProcessor::applyGeneratedParameters(const ParameterGenerator
     globalWidth->setUserValueNotifingHost(params.stereo.globalWidth);
     monoBassEnabled->setUserValueNotifingHost(params.stereo.monoBassEnabled ? 1.0f : 0.0f);
 
-    // Apply limiter auto-gain through output gain
-    float currentLUFS = analysisEngine.getShortTermLUFS();
+    // Apply limiter auto-gain - uses accumulated LUFS if available, otherwise real-time
     float target = targetLUFS->getProcValue();
-    if (currentLUFS > -60.0f)
+    if (lufsForAutoGain > -60.0f)
     {
-        float autoGain = juce::jlimit(-12.0f, 12.0f, target - currentLUFS);
+        float autoGain = juce::jlimit(-12.0f, 12.0f, target - lufsForAutoGain);
         masteringChain.getLimiter().setAutoGainValue(autoGain);
         masteringChain.getLimiter().setAutoGainEnabled(true);
     }
