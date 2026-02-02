@@ -21,12 +21,12 @@ namespace {
     constexpr int kSwitchHeight = 36;  // Need room for toggle (18px) + label below
 
     // Meters
-    constexpr int kMeterWidth = 10;
-    constexpr int kMeterSectionWidth = 36;
+    constexpr int kMeterWidth = 20;
+    constexpr int kMeterSectionWidth = 100;
 
     // Headers
     constexpr int kHeaderHeight = 50;
-    constexpr int kModuleLabelH = 14;
+    constexpr int kModuleLabelH = 24;
     constexpr int kSectionLabelH = 12;
     constexpr int kTabHeight = 24;
 
@@ -44,11 +44,11 @@ namespace {
     constexpr int kLimiterCtrlSectionW = kKnobSize * 2 + kGap + 8;
     constexpr int kLimiterMeterSectionW = kKnobSize * 3 + kSwitchWidth + 12;
 
-    // Meter strip
-    constexpr int kMeterStripHeight = 50;
+    // Meter strip (now empty - meters moved to sections)
+    constexpr int kMeterStripHeight = 0;
 
-    // Spectrum analyzer - BIG
-    constexpr int kSpectrumHeight = 280;
+    // Spectrum analyzer - BIG (gets extra space from removed meter strip)
+    constexpr int kSpectrumHeight = 320;
 
     // Module rows - EQ/Comp need 2 rows of knobs, Stereo/Limiter only need 1
     constexpr int kModuleRow1H = 134;  // label(16) + padding(4) + row1(56) + gap(2) + row2(56) = 134
@@ -214,6 +214,7 @@ AutomasterAudioProcessorEditor::~AutomasterAudioProcessorEditor()
 {
     // Clear custom LookAndFeels before components are destroyed
     autoMasterButton.setLookAndFeel(nullptr);
+    analyzeButton.setLookAndFeel(nullptr);
 
     // EQ section
     lowShelfFreqKnob.getSlider().setLookAndFeel(nullptr);
@@ -387,17 +388,15 @@ void AutomasterAudioProcessorEditor::setupModeSection()
     addAndMakeVisible(targetLUFSKnob);
 
     autoMasterButton.setButtonText("AUTO MASTER");
-    rainbowButtonLAF = std::make_unique<RainbowButtonLookAndFeel>();
-    autoMasterButton.setLookAndFeel(rainbowButtonLAF.get());
+    autoMasterButtonLAF = std::make_unique<StyledButtonLookAndFeel>(juce::Colour(0xFF00BCD4));  // Cyan/teal
+    autoMasterButton.setLookAndFeel(autoMasterButtonLAF.get());
     autoMasterButton.onClick = [this]() { proc.triggerAutoMaster(); };
     addAndMakeVisible(autoMasterButton);
 
-    // Analyze button (Ozone-style workflow) - subtle, secondary
+    // Analyze button - styled yellow button
     analyzeButton.setButtonText("ANALYZE");
-    analyzeButton.setColour(juce::TextButton::buttonColourId, juce::Colour(0xFF2a2a2a));
-    analyzeButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xFFFF6B35));  // Orange when active
-    analyzeButton.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
-    analyzeButton.setColour(juce::TextButton::textColourOffId, juce::Colour(0xFF888888));  // Muted gray
+    analyzeButtonLAF = std::make_unique<StyledButtonLookAndFeel>(juce::Colour(0xFFF59E0B));  // Yellow/amber
+    analyzeButton.setLookAndFeel(analyzeButtonLAF.get());
     analyzeButton.setClickingTogglesState(true);
     analyzeButton.onClick = [this]()
     {
@@ -632,12 +631,6 @@ void AutomasterAudioProcessorEditor::resized()
     auto spectrumArea = bounds.removeFromTop(kSpectrumHeight);
     spectrumAnalyzer.setBounds(spectrumArea);
     bounds.removeFromTop(kSectionGap);
-
-    // === METER STRIP below spectrum (LUFS, correlation, comp GR, BIG limiter GR) ===
-    auto meterStrip = bounds.removeFromTop(kMeterStripHeight);
-    bounds.removeFromTop(kSectionGap);
-
-    layoutMeterStrip(meterStrip);
 
     // Use the namespace constant for module row height
 
@@ -1097,7 +1090,13 @@ void AutomasterAudioProcessorEditor::layoutEQAll(juce::Rectangle<int> area)
         bandQKnobs[i]->setVisible(false);  // Q knobs hidden for space
     }
 
-    area.removeFromTop(kModuleLabelH + 2);  // Label space
+    // Bypass switch in header (right side, vertically centered)
+    auto headerArea = area.removeFromTop(kModuleLabelH);
+    auto switchArea = headerArea.removeFromRight(kSwitchWidth + 4);
+    // Position bypass switch in header - offset down to visually center
+    eqBypassSwitch.setBounds(switchArea.getX(), headerArea.getY() + 10, kSwitchWidth + 4, kModuleLabelH - 10);
+
+    area.removeFromTop(2);  // Gap after header
     area = area.reduced(4, 2);
 
     int switchY = (kKnobSize - kSwitchHeight) / 2;
@@ -1124,8 +1123,6 @@ void AutomasterAudioProcessorEditor::layoutEQAll(juce::Rectangle<int> area)
     row1.removeFromLeft(kGap);
     highShelfGainKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
 
-    eqBypassSwitch.setBounds(row1.removeFromRight(kSwitchWidth).withHeight(kSwitchHeight).translated(0, switchY));
-
     area.removeFromTop(kRowGap);
 
     // Row 2: 4 parametric bands (freq + gain)
@@ -1140,7 +1137,7 @@ void AutomasterAudioProcessorEditor::layoutEQAll(juce::Rectangle<int> area)
 
 void AutomasterAudioProcessorEditor::layoutCompressorAll(juce::Rectangle<int> area)
 {
-    // Make all compressor controls visible (meters are in the strip now)
+    // Make all compressor controls visible
     lowMidXoverKnob.setVisible(true);
     midHighXoverKnob.setVisible(true);
     compBypassSwitch.setVisible(true);
@@ -1150,13 +1147,21 @@ void AutomasterAudioProcessorEditor::layoutCompressorAll(juce::Rectangle<int> ar
         compAttackKnobs[i]->setVisible(true);
         compReleaseKnobs[i]->setVisible(true);
         compMakeupKnobs[i]->setVisible(false);
-        // GR meters positioned in layoutMeterStrip
+        compGRMeters[i].setVisible(true);
     }
 
-    area.removeFromTop(kModuleLabelH + 2);
+    // Bypass switch in header (right side, vertically centered)
+    auto headerArea = area.removeFromTop(kModuleLabelH);
+    auto switchArea = headerArea.removeFromRight(kSwitchWidth + 4);
+    // Position bypass switch in header - offset down to visually center
+    compBypassSwitch.setBounds(switchArea.getX(), headerArea.getY() + 10, kSwitchWidth + 4, kModuleLabelH - 10);
+
+    area.removeFromTop(2);  // Gap after header
     area = area.reduced(4, 2);
 
-    int switchY = (kKnobSize - kSwitchHeight) / 2;
+    // GR meters on the right side (vertical strip for 3 bands)
+    auto grArea = area.removeFromRight(70);
+    area.removeFromRight(kGap);
 
     // Row 1: Xover knobs + Threshold for 3 bands
     auto row1 = area.removeFromTop(kKnobHeight);
@@ -1173,8 +1178,6 @@ void AutomasterAudioProcessorEditor::layoutCompressorAll(juce::Rectangle<int> ar
         if (i < 2) row1.removeFromLeft(kGap * 2);
     }
 
-    compBypassSwitch.setBounds(row1.removeFromRight(kSwitchWidth).withHeight(kSwitchHeight).translated(0, switchY));
-
     area.removeFromTop(kRowGap);
 
     // Row 2: Attack/Release for 3 bands
@@ -1187,11 +1190,18 @@ void AutomasterAudioProcessorEditor::layoutCompressorAll(juce::Rectangle<int> ar
         compReleaseKnobs[i]->setBounds(row2.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
         if (i < 2) row2.removeFromLeft(kGap * 2);
     }
+
+    // Layout GR meters vertically (Low at bottom, High at top - matches frequency)
+    int grMeterH = (grArea.getHeight() - 8) / 3;
+    for (int i = 2; i >= 0; --i) {  // High, Mid, Low from top to bottom
+        compGRMeters[i].setBounds(grArea.removeFromTop(grMeterH).reduced(2, 2));
+        grArea.removeFromTop(2);
+    }
 }
 
 void AutomasterAudioProcessorEditor::layoutStereoAll(juce::Rectangle<int> area)
 {
-    // Make all stereo controls visible (correlation meter is in the strip now)
+    // Make all stereo controls visible
     globalWidthKnob.setVisible(true);
     lowWidthKnob.setVisible(true);
     midWidthKnob.setVisible(true);
@@ -1199,14 +1209,25 @@ void AutomasterAudioProcessorEditor::layoutStereoAll(juce::Rectangle<int> area)
     monoBassFreqKnob.setVisible(true);
     monoBassEnableSwitch.setVisible(true);
     stereoBypassSwitch.setVisible(true);
-    // correlationMeter positioned in layoutMeterStrip
+    correlationMeter.setVisible(true);
 
-    area.removeFromTop(kModuleLabelH + 2);
+    // Bypass switch in header (right side, vertically centered)
+    auto headerArea = area.removeFromTop(kModuleLabelH);
+    auto switchArea = headerArea.removeFromRight(kSwitchWidth + 4);
+    // Position bypass switch in header - offset down to visually center
+    stereoBypassSwitch.setBounds(switchArea.getX(), headerArea.getY() + 6, kSwitchWidth + 4, kModuleLabelH - 6);
+
+    area.removeFromTop(2);  // Gap after header
     area = area.reduced(4, 2);
 
     int switchY = (kKnobSize - kSwitchHeight) / 2;
 
-    // All width knobs + mono bass + bypass in one row
+    // Correlation meter on the right side
+    auto corrArea = area.removeFromRight(120);
+    area.removeFromRight(kGap);
+    correlationMeter.setBounds(corrArea.reduced(2, 8));
+
+    // All width knobs + mono bass in one row
     auto row1 = area.removeFromTop(kKnobHeight);
 
     globalWidthKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
@@ -1222,31 +1243,36 @@ void AutomasterAudioProcessorEditor::layoutStereoAll(juce::Rectangle<int> area)
     monoBassEnableSwitch.setBounds(row1.removeFromLeft(kSwitchWidth).withHeight(kSwitchHeight).translated(0, switchY));
     row1.removeFromLeft(2);
     monoBassFreqKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-
-    stereoBypassSwitch.setBounds(row1.removeFromRight(kSwitchWidth).withHeight(kSwitchHeight).translated(0, switchY));
 }
 
 void AutomasterAudioProcessorEditor::layoutLimiterAll(juce::Rectangle<int> area)
 {
-    // Make limiter controls visible (GR meter is in the strip now - it's the big one!)
+    // Make limiter controls visible
     ceilingKnob.setVisible(true);
     limiterReleaseKnob.setVisible(true);
     limiterBypassSwitch.setVisible(true);
-    // limiterGRMeter positioned in layoutMeterStrip
+    limiterGRMeter.setVisible(true);
 
-    area.removeFromTop(kModuleLabelH + 2);
+    // Bypass switch in header (right side, vertically centered)
+    auto headerArea = area.removeFromTop(kModuleLabelH);
+    auto switchArea = headerArea.removeFromRight(kSwitchWidth + 4);
+    // Position bypass switch in header - offset down to visually center
+    limiterBypassSwitch.setBounds(switchArea.getX(), headerArea.getY() + 6, kSwitchWidth + 4, kModuleLabelH - 6);
+
+    area.removeFromTop(2);  // Gap after header
     area = area.reduced(4, 2);
 
-    int switchY = (kKnobSize - kSwitchHeight) / 2;
+    // Limiter GR meter takes the right side (big!)
+    auto grArea = area.removeFromRight(area.getWidth() / 2);
+    area.removeFromRight(kGap);
+    limiterGRMeter.setBounds(grArea.reduced(2, 8));
 
-    // Ceiling, Release, Bypass in one row
+    // Ceiling, Release in one row
     auto row1 = area.removeFromTop(kKnobHeight);
 
     ceilingKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
     row1.removeFromLeft(kGap);
     limiterReleaseKnob.setBounds(row1.removeFromLeft(kKnobSize).withHeight(kKnobHeight));
-
-    limiterBypassSwitch.setBounds(row1.removeFromRight(kSwitchWidth).withHeight(kSwitchHeight).translated(0, switchY));
 }
 
 void AutomasterAudioProcessorEditor::layoutMeters(juce::Rectangle<int> area)
@@ -1277,36 +1303,20 @@ void AutomasterAudioProcessorEditor::layoutMeters(juce::Rectangle<int> area)
 
 void AutomasterAudioProcessorEditor::layoutMeterStrip(juce::Rectangle<int> area)
 {
-    // Meter strip layout: [LUFS] [Correlation] [Comp GR x3] [=== BIG LIMITER GR ===]
+    // Meter strip is now empty - meters moved to their respective sections
+    // Keep this function for potential future use (waveform display, etc.)
+    (void)area;
 
-    area = area.reduced(4, 2);
-
-    // LUFS meter - bigger so text is readable
-    lufsMeter.setVisible(true);
-    lufsMeter.setBounds(area.removeFromLeft(100));
-    area.removeFromLeft(kSectionGap);
-
-    // Correlation meter - wider for L/R display
-    correlationMeter.setVisible(true);
-    correlationMeter.setBounds(area.removeFromLeft(140).reduced(0, 4));
-    area.removeFromLeft(kSectionGap);
-
-    // 3 Compressor GR meters
-    for (int i = 0; i < 3; ++i) {
-        compGRMeters[i].setVisible(true);
-        compGRMeters[i].setBounds(area.removeFromLeft(80).reduced(0, 8));
-        area.removeFromLeft(4);
-    }
-    area.removeFromLeft(kSectionGap);
-
-    // LIMITER GR meter takes ALL remaining space (big!)
-    limiterGRMeter.setVisible(true);
-    limiterGRMeter.setBounds(area);
+    // Hide meters that used to be here - they're now in module sections
+    // LUFS is in the vertical meter section on the right
+    // Correlation is in Stereo section
+    // Comp GR meters are in Compressor section
+    // Limiter GR is in Limiter section
 }
 
 void AutomasterAudioProcessorEditor::layoutMetersVertical(juce::Rectangle<int> area)
 {
-    // Vertical IN/OUT meters on the right side
+    // Vertical IN/OUT meters + LUFS on the right side
     area = area.reduced(2, 4);
 
     inputMeterL.setVisible(true);
@@ -1315,22 +1325,34 @@ void AutomasterAudioProcessorEditor::layoutMetersVertical(juce::Rectangle<int> a
     outputMeterR.setVisible(true);
     inputLabel.setVisible(true);
     outputLabel.setVisible(true);
-    lufsLabel.setVisible(false);  // LUFS is in the strip now
+    lufsMeter.setVisible(true);
+    lufsLabel.setVisible(true);
 
-    int meterH = (area.getHeight() - 24) / 2;
-    int meterX = (area.getWidth() - kMeterWidth * 2 - 2) / 2;
+    // Reserve space for LUFS at bottom (60px for meter + 12px for label)
+    auto lufsArea = area.removeFromBottom(72);
+    area.removeFromBottom(4);
+
+    // Split remaining height between IN and OUT
+    int meterH = (area.getHeight() - 28) / 2;  // 28 = 2 labels (10px each) + gap (8px)
+
+    // Meters fill most of the width (leave 4px padding on each side)
+    int meterW = (area.getWidth() - 12) / 2;  // 2 meters with 4px gap between
 
     inputLabel.setBounds(area.removeFromTop(10));
     auto inArea = area.removeFromTop(meterH);
-    inputMeterL.setBounds(inArea.getX() + meterX, inArea.getY(), kMeterWidth, inArea.getHeight());
-    inputMeterR.setBounds(inArea.getX() + meterX + kMeterWidth + 2, inArea.getY(), kMeterWidth, inArea.getHeight());
+    inputMeterL.setBounds(inArea.getX() + 4, inArea.getY(), meterW, inArea.getHeight());
+    inputMeterR.setBounds(inArea.getX() + 4 + meterW + 4, inArea.getY(), meterW, inArea.getHeight());
 
-    area.removeFromTop(4);
+    area.removeFromTop(8);
 
     outputLabel.setBounds(area.removeFromTop(10));
     auto outArea = area;
-    outputMeterL.setBounds(outArea.getX() + meterX, outArea.getY(), kMeterWidth, outArea.getHeight());
-    outputMeterR.setBounds(outArea.getX() + meterX + kMeterWidth + 2, outArea.getY(), kMeterWidth, outArea.getHeight());
+    outputMeterL.setBounds(outArea.getX() + 4, outArea.getY(), meterW, outArea.getHeight());
+    outputMeterR.setBounds(outArea.getX() + 4 + meterW + 4, outArea.getY(), meterW, outArea.getHeight());
+
+    // LUFS meter at the bottom - full width
+    lufsLabel.setBounds(lufsArea.removeFromTop(12));
+    lufsMeter.setBounds(lufsArea);
 }
 
 void AutomasterAudioProcessorEditor::paintAllModules(juce::Graphics& g)
@@ -1349,13 +1371,6 @@ void AutomasterAudioProcessorEditor::paintAllModules(juce::Graphics& g)
 
     // Spectrum analyzer area (painted by component itself)
     bounds.removeFromTop(kSpectrumHeight);
-    bounds.removeFromTop(kSectionGap);
-
-    // Meter strip
-    auto meterStrip = bounds.removeFromTop(kMeterStripHeight);
-    g.setColour(juce::Colour(0xFF1e1e1e));
-    g.fillRoundedRectangle(meterStrip.toFloat(), 4.0f);
-
     bounds.removeFromTop(kSectionGap);
 
     int halfW = (bounds.getWidth() - kSectionGap) / 2;
@@ -1380,7 +1395,7 @@ void AutomasterAudioProcessorEditor::paintAllModules(juce::Graphics& g)
     g.fillRoundedRectangle(stereoArea.toFloat(), 4.0f);
     g.fillRoundedRectangle(limiterArea.toFloat(), 4.0f);
 
-    // Draw module labels with colored accents
+    // Draw module labels with colored accents (leave space on right for bypass switch)
     g.setFont(juce::FontOptions(11.0f).withStyle("Bold"));
 
     auto drawModuleLabel = [&](juce::Rectangle<int> area, const juce::String& name, juce::Colour color) {
@@ -1389,8 +1404,11 @@ void AutomasterAudioProcessorEditor::paintAllModules(juce::Graphics& g)
         g.fillRoundedRectangle(labelArea.toFloat(), 4.0f);
         g.setColour(color);
         g.fillRect(labelArea.getX(), labelArea.getBottom() - 2, labelArea.getWidth(), 2);
+        // Leave space on right for bypass switch
+        auto textArea = labelArea;
+        textArea.removeFromRight(kSwitchWidth + 8);
         g.setColour(juce::Colours::white);
-        g.drawText(name, labelArea, juce::Justification::centred);
+        g.drawText(name, textArea, juce::Justification::centred);
     };
 
     drawModuleLabel(eqArea, "EQ", AutomasterColors::eqColor);

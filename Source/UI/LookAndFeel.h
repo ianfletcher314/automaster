@@ -583,6 +583,70 @@ private:
 };
 
 // Rainbow button LookAndFeel - sophisticated aurora/synthwave gradient
+// Styled button with a solid color (or gradient for rainbow effect)
+class StyledButtonLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    StyledButtonLookAndFeel(juce::Colour baseColor) : color(baseColor) {}
+
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                              const juce::Colour&, bool isMouseOver, bool isButtonDown) override
+    {
+        auto bounds = button.getLocalBounds().toFloat().reduced(1.0f);
+        auto cornerSize = 6.0f;
+
+        // Gradient from lighter at top to darker at bottom
+        juce::ColourGradient gradient(
+            color.brighter(0.2f), bounds.getX(), bounds.getY(),
+            color.darker(0.2f), bounds.getX(), bounds.getBottom(),
+            false);
+
+        g.setGradientFill(gradient);
+        g.fillRoundedRectangle(bounds, cornerSize);
+
+        // Subtle inner glow at top
+        g.setColour(juce::Colours::white.withAlpha(0.15f));
+        g.fillRoundedRectangle(bounds.reduced(2.0f).withHeight(bounds.getHeight() * 0.4f), cornerSize);
+
+        // Darken on press, subtle brighten on hover
+        if (isButtonDown)
+        {
+            g.setColour(juce::Colours::black.withAlpha(0.25f));
+            g.fillRoundedRectangle(bounds, cornerSize);
+        }
+        else if (isMouseOver)
+        {
+            g.setColour(juce::Colours::white.withAlpha(0.12f));
+            g.fillRoundedRectangle(bounds, cornerSize);
+        }
+
+        // Subtle border
+        g.setColour(juce::Colours::white.withAlpha(0.25f));
+        g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
+    }
+
+    void drawButtonText(juce::Graphics& g, juce::TextButton& button,
+                        bool, bool) override
+    {
+        auto bounds = button.getLocalBounds();
+
+        // Bold white text with subtle shadow
+        g.setFont(juce::FontOptions(13.0f).withStyle("Bold"));
+
+        // Subtle shadow
+        g.setColour(juce::Colours::black.withAlpha(0.5f));
+        g.drawText(button.getButtonText(), bounds.translated(1, 1), juce::Justification::centred);
+
+        // Main text
+        g.setColour(juce::Colours::white);
+        g.drawText(button.getButtonText(), bounds, juce::Justification::centred);
+    }
+
+private:
+    juce::Colour color;
+};
+
+// Rainbow/aurora gradient button (legacy alias)
 class RainbowButtonLookAndFeel : public juce::LookAndFeel_V4
 {
 public:

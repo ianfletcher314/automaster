@@ -136,8 +136,9 @@ private:
     juce::OwnedArray<ColoredKnobLookAndFeel> coloredKnobLAFs;
     // Toggle switch LookAndFeels
     juce::OwnedArray<ToggleSwitchLookAndFeel> switchLAFs;
-    // Rainbow button LookAndFeel for Auto Master
-    std::unique_ptr<RainbowButtonLookAndFeel> rainbowButtonLAF;
+    // Styled button LookAndFeels
+    std::unique_ptr<StyledButtonLookAndFeel> autoMasterButtonLAF;  // Cyan/teal
+    std::unique_ptr<StyledButtonLookAndFeel> analyzeButtonLAF;     // Yellow
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomasterAudioProcessorEditor)
 };
