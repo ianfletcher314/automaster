@@ -70,6 +70,14 @@ hr {
   border-top: 1px solid var(--mint-light);
 }
 
+footer {
+  width: 140px;
+  font-size: 0.75em;
+  padding-right: 20px;
+  position: fixed;
+  bottom: 20px;
+}
+
 @media print, screen and (max-width: 720px) {
   header {
     width: 100%;
@@ -80,6 +88,12 @@ hr {
     padding-left: 0;
     border-left: none;
     border-top: 2px solid var(--mint-light);
+    padding-top: 20px;
+  }
+  footer {
+    position: relative;
+    width: 100%;
+    bottom: auto;
     padding-top: 20px;
   }
 }
