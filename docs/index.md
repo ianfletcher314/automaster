@@ -3,17 +3,43 @@
 
 ---
 
-## The Vision
+## What Is AutoMaster?
 
-AutoMaster started with a simple question: *What if mastering could be as easy as pressing a button, without sacrificing quality?*
+AutoMaster is a complete mastering suite in a single plugin. Drop it on your master bus, hit analyze, and it intelligently applies professional mastering settings tailored to your track.
 
-Professional mastering requires years of experience to develop the ear for subtle EQ adjustments, compression ratios, and stereo imaging decisions. We set out to encode that knowledge into software that could analyze audio and make intelligent processing decisions—while keeping full manual control available for those who want it.
+**Core modules:**
+- **8-Band EQ** — HPF/LPF, low and high shelves, plus 4 parametric bands with per-band coloring
+- **3-Band Multiband Compressor** — Independent compression for lows, mids, and highs with adjustable crossovers
+- **Stereo Imager** — Global and per-band width control, plus mono bass for tight low end
+- **True-Peak Limiter** — Transparent loudness maximization with 4x oversampled peak detection
+
+**The auto-master workflow:**
+1. Play your loudest section
+2. Click **Analyze** to capture dynamics and spectral characteristics
+3. Click **Auto Master** to generate optimal settings
+4. Tweak to taste, or use as-is
+
+Target any loudness standard—Spotify's -14 LUFS, Apple Music's -16 LUFS, or push it louder for club play.
+
+## The Idea
+
+Most mastering plugins fall into two camps: simple "one knob" tools that lack control, or complex suites that require deep expertise. We wanted something in between.
+
+The goal was to build a plugin that could:
+- **Analyze intelligently** — Understand what a track needs by measuring its spectral balance, dynamics, and stereo field
+- **Suggest settings** — Generate a solid starting point based on analysis, not arbitrary presets
+- **Stay transparent** — Show all controls at once so you can see exactly what's happening and tweak anything
+- **Sound professional** — Match the quality of dedicated mastering hardware and premium plugins
+
+Think of it as having a mastering engineer's first pass built into the plugin. You get an intelligent starting point, then refine from there.
 
 ## The Stack
 
 - **JUCE Framework** — Industry-standard C++ framework for audio plugins
 - **gin Library** — Parameter management and UI components
 - **Xcode** — Build toolchain for AU/VST3 on macOS
+
+---
 
 ## Key Challenges We Overcame
 
@@ -45,6 +71,8 @@ The auto-master feature needed to make smart decisions:
 - **Dynamics analysis** — Crest factor measurement to determine how much compression is appropriate
 - **Stereo analysis** — Correlation and width measurement to guide stereo imaging
 - **Genre detection** — Automatic genre classification to apply appropriate processing profiles
+
+---
 
 ## Architecture
 
