@@ -4,10 +4,34 @@
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 #include <cmath>
+#include <fstream>
+#include <atomic>
 
 class Limiter
 {
 public:
+    // Diagnostic data structure
+    struct Diagnostics
+    {
+        float maxOutputLevel = 0.0f;         // Max output sample value (linear)
+        float maxPreSoftClipLevel = 0.0f;    // Max level before soft clip
+        int softClipEngagements = 0;         // Samples where soft clip was active
+        int totalSamples = 0;                // Total samples processed
+        float autoGainDB = 0.0f;             // Current auto-gain value
+        float maxGainReductionDB = 0.0f;     // Max GR this period
+        int samplesExceeding1 = 0;           // Samples > 1.0 (should be 0!)
+
+        void reset()
+        {
+            maxOutputLevel = 0.0f;
+            maxPreSoftClipLevel = 0.0f;
+            softClipEngagements = 0;
+            totalSamples = 0;
+            samplesExceeding1 = 0;
+            maxGainReductionDB = 0.0f;
+        }
+    };
+
     Limiter() = default;
 
     void prepare(double sampleRate, int samplesPerBlock)
@@ -162,10 +186,29 @@ public:
                 delayedR *= autoGainLinear;
             }
 
+            // DIAGNOSTIC: Track pre-soft-clip levels
+            float preSoftClipMax = std::max(std::abs(delayedL), std::abs(delayedR));
+            diag.maxPreSoftClipLevel = std::max(diag.maxPreSoftClipLevel, preSoftClipMax);
+
+            // Check if soft clip will engage (above knee)
+            float knee = ceilingLinear * 0.95f;
+            if (preSoftClipMax > knee)
+            {
+                diag.softClipEngagements++;
+            }
+
             // SOFT CLIP safety (tanh-based) instead of hard clip
             // This catches any remaining peaks musically
             delayedL = softClipOutput(delayedL, ceilingLinear);
             delayedR = softClipOutput(delayedR, ceilingLinear);
+
+            // DIAGNOSTIC: Track output levels
+            float outputMax = std::max(std::abs(delayedL), std::abs(delayedR));
+            diag.maxOutputLevel = std::max(diag.maxOutputLevel, outputMax);
+            diag.totalSamples++;
+
+            if (outputMax > 1.0f)
+                diag.samplesExceeding1++;
 
             buffer.setSample(0, sample, delayedL);
             if (numChannels > 1)
@@ -177,6 +220,16 @@ public:
         }
 
         gainReduction.store(maxGR);
+        diag.maxGainReductionDB = std::max(diag.maxGainReductionDB, maxGR);
+        diag.autoGainDB = autoGainDB;
+
+        // Periodically log diagnostics (every ~1 second at 48kHz with 512 block size)
+        diagBlockCount++;
+        if (diagBlockCount >= 94)  // ~1 second
+        {
+            logDiagnostics();
+            diagBlockCount = 0;
+        }
     }
 
     // Controls
@@ -203,7 +256,9 @@ public:
 
     void setAutoGainValue(float gainDB)
     {
-        autoGainDB = juce::jlimit(-12.0f, 12.0f, gainDB);
+        // Cap auto-gain at +6dB to prevent limiter from working too hard
+        // More than +6dB of makeup gain typically causes audible artifacts
+        autoGainDB = juce::jlimit(-12.0f, 6.0f, gainDB);
         autoGainLinear = DSPUtils::decibelsToLinear(autoGainDB);
     }
 
@@ -232,29 +287,30 @@ public:
 
 private:
     // Soft clip using tanh - musical saturation instead of harsh digital clip
+    // This version has NO discontinuity - starts engaging at knee and smoothly approaches ceiling
     float softClipOutput(float input, float ceiling)
     {
-        float normalized = input / ceiling;
+        float absInput = std::abs(input);
 
-        // If already below ceiling, pass through
-        if (std::abs(normalized) <= 1.0f)
+        // Knee at 95% of ceiling - only engage for actual emergencies
+        // (Was 80%, which caused audible saturation on peaks that were already within limits)
+        float knee = ceiling * 0.95f;
+
+        // If below knee, pass through unchanged (linear region)
+        if (absInput <= knee)
             return input;
 
-        // Soft clip region: use tanh to smoothly approach ceiling
-        float sign = normalized > 0.0f ? 1.0f : -1.0f;
-        float absNorm = std::abs(normalized);
+        float sign = input > 0.0f ? 1.0f : -1.0f;
 
-        // tanh soft clip with knee starting at 0.9
-        float knee = 0.9f;
-        if (absNorm > knee)
-        {
-            float excess = absNorm - knee;
-            float softRegion = 1.0f - knee;
-            float clipped = knee + softRegion * std::tanh(excess / softRegion);
-            return sign * clipped * ceiling;
-        }
+        // Soft region is from knee to ceiling (and beyond)
+        float softRegion = ceiling - knee;  // 0.2 * ceiling
+        float excess = absInput - knee;
 
-        return input;
+        // tanh maps 0->0 and infinity->1
+        // So knee + softRegion * tanh(excess/softRegion) approaches knee + softRegion = ceiling
+        float clipped = knee + softRegion * std::tanh(excess / softRegion);
+
+        return sign * clipped;
     }
 
     void updateCoefficients()
@@ -314,4 +370,42 @@ private:
 
     // Metering
     std::atomic<float> gainReduction { 0.0f };
+
+    // Diagnostics
+    Diagnostics diag;
+    int diagBlockCount = 0;
+
+    void logDiagnostics()
+    {
+        // Write to log file in user's home directory
+        static std::string logPath = std::string(getenv("HOME")) + "/automaster_limiter_diag.log";
+        std::ofstream log(logPath, std::ios::app);
+
+        if (log.is_open())
+        {
+            float softClipPercent = diag.totalSamples > 0 ?
+                (100.0f * diag.softClipEngagements / diag.totalSamples) : 0.0f;
+
+            log << "=== Limiter Diagnostics (1 sec) ===" << std::endl;
+            log << "Max output level: " << diag.maxOutputLevel
+                << " (" << DSPUtils::linearToDecibels(diag.maxOutputLevel) << " dB)" << std::endl;
+            log << "Max pre-softclip: " << diag.maxPreSoftClipLevel
+                << " (" << DSPUtils::linearToDecibels(diag.maxPreSoftClipLevel) << " dB)" << std::endl;
+            log << "Soft clip engaged: " << diag.softClipEngagements << " / "
+                << diag.totalSamples << " samples (" << softClipPercent << "%)" << std::endl;
+            log << "Samples > 1.0: " << diag.samplesExceeding1 << std::endl;
+            log << "Auto-gain: " << diag.autoGainDB << " dB" << std::endl;
+            log << "Max GR: " << diag.maxGainReductionDB << " dB" << std::endl;
+            log << "Ceiling: " << ceiling << " dB (" << DSPUtils::decibelsToLinear(ceiling) << " linear)" << std::endl;
+            log << std::endl;
+            log.close();
+        }
+
+        diag.reset();
+    }
+
+public:
+    // Access diagnostics for UI display
+    const Diagnostics& getDiagnostics() const { return diag; }
+    void resetDiagnostics() { diag.reset(); }
 };

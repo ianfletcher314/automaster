@@ -27,6 +27,10 @@ public:
 
         inputGainSmoothed.reset(sampleRate);
         outputGainSmoothed.reset(sampleRate);
+        headroomGainSmoothed.reset(sampleRate);
+
+        // Peak follower coefficient: ~100ms attack/release for smooth tracking
+        peakFollowerCoeff = std::exp(-1.0f / (static_cast<float>(sampleRate) * 0.1f));
 
         reset();
     }
@@ -39,6 +43,9 @@ public:
         limiter.reset();
         inputMeter.reset();
         outputMeter.reset();
+
+        trackedPeakLevel = 0.0f;
+        currentHeadroomGainDB = 0.0f;
     }
 
     void process(juce::AudioBuffer<float>& buffer)
@@ -58,7 +65,63 @@ public:
             }
         }
 
-        // Measure input
+        // === AUTOMATIC HEADROOM CREATION ===
+        // Measure peak level and create headroom if input is too hot.
+        // This allows EQ and compressor to work cleanly without clipping.
+        // The limiter's auto-gain will compensate at the end.
+        if (autoHeadroomEnabled && chainEnabled)
+        {
+            // Find peak in this buffer
+            float blockPeak = 0.0f;
+            for (int ch = 0; ch < numChannels; ++ch)
+            {
+                for (int sample = 0; sample < numSamples; ++sample)
+                {
+                    float absVal = std::abs(buffer.getSample(ch, sample));
+                    blockPeak = std::max(blockPeak, absVal);
+                }
+            }
+
+            // Smooth peak tracking (fast attack, slow release)
+            if (blockPeak > trackedPeakLevel)
+                trackedPeakLevel = blockPeak;  // Instant attack
+            else
+                trackedPeakLevel = peakFollowerCoeff * trackedPeakLevel + (1.0f - peakFollowerCoeff) * blockPeak;
+
+            // Calculate required headroom reduction
+            // Target: peaks at -6dB (0.5 linear) to give processing headroom
+            const float targetPeakLinear = 0.5f;  // -6dB
+            const float minReductionThreshold = 0.56f;  // Only reduce if peaks > -5dB
+
+            if (trackedPeakLevel > minReductionThreshold)
+            {
+                // Calculate gain needed to bring peaks to target
+                float requiredGain = targetPeakLinear / trackedPeakLevel;
+                currentHeadroomGainDB = DSPUtils::linearToDecibels(requiredGain);
+                // Clamp to reasonable range (don't reduce by more than 12dB)
+                currentHeadroomGainDB = std::max(currentHeadroomGainDB, -12.0f);
+            }
+            else
+            {
+                // Input is quiet enough, no reduction needed
+                currentHeadroomGainDB = 0.0f;
+            }
+
+            // Apply headroom reduction with smoothing
+            if (std::abs(currentHeadroomGainDB) > 0.01f)
+            {
+                headroomGainSmoothed.setTargetValue(DSPUtils::decibelsToLinear(currentHeadroomGainDB));
+                for (int sample = 0; sample < numSamples; ++sample)
+                {
+                    float gain = headroomGainSmoothed.getNextValue();
+                    for (int ch = 0; ch < numChannels; ++ch)
+                        buffer.setSample(ch, sample, buffer.getSample(ch, sample) * gain);
+                }
+            }
+        }
+
+        // Measure input (after headroom adjustment - this affects LUFS calculation,
+        // which the limiter's auto-gain will then compensate for)
         juce::AudioBuffer<float> inputCopy(buffer);
         inputMeter.process(inputCopy);
 
@@ -132,6 +195,11 @@ public:
     float getOutputGain() const { return outputGainDB; }
     bool isChainEnabled() const { return chainEnabled; }
 
+    // Auto headroom control
+    void setAutoHeadroomEnabled(bool enabled) { autoHeadroomEnabled = enabled; }
+    bool isAutoHeadroomEnabled() const { return autoHeadroomEnabled; }
+    float getHeadroomReduction() const { return -currentHeadroomGainDB; }  // Return as positive dB
+
 private:
     double currentSampleRate = 44100.0;
     int currentBlockSize = 512;
@@ -151,6 +219,13 @@ private:
     float outputGainDB = 0.0f;
     DSPUtils::SmoothedValue inputGainSmoothed;
     DSPUtils::SmoothedValue outputGainSmoothed;
+
+    // Automatic headroom creation
+    bool autoHeadroomEnabled = true;  // Enabled by default
+    float trackedPeakLevel = 0.0f;
+    float currentHeadroomGainDB = 0.0f;
+    float peakFollowerCoeff = 0.99f;
+    DSPUtils::SmoothedValue headroomGainSmoothed;
 
     bool chainEnabled = true;
 };
