@@ -102,8 +102,9 @@ AutomasterAudioProcessor::AutomasterAudioProcessor()
                                {1000.0f, 10000.0f, 1.0f, 0.5f}, 3000.0f,
                                gin::SmoothingType(0.05f));
 
-    const float defaultThresholds[] = { -20.0f, -18.0f, -16.0f };
-    const float defaultRatios[] = { 3.0f, 4.0f, 4.0f };
+    // Gentler defaults to preserve verse-to-chorus dynamics (macrodynamics)
+    const float defaultThresholds[] = { -10.0f, -8.0f, -6.0f };
+    const float defaultRatios[] = { 2.0f, 2.0f, 2.0f };
     const float defaultAttacks[] = { 20.0f, 10.0f, 5.0f };
     const float defaultReleases[] = { 200.0f, 150.0f, 100.0f };
     const char* bandNames[] = { "Low", "Mid", "High" };
@@ -384,7 +385,17 @@ void AutomasterAudioProcessor::applyGeneratedParameters(const ParameterGenerator
     float target = targetLUFS->getProcValue();
     if (lufsForAutoGain > -60.0f)
     {
-        float autoGain = juce::jlimit(-12.0f, 12.0f, target - lufsForAutoGain);
+        // Calculate base auto-gain needed to reach target LUFS
+        float autoGain = target - lufsForAutoGain;
+
+        // Add headroom reduction compensation
+        // If auto-headroom reduced the input by 6dB, we need 6dB more auto-gain
+        float headroomCompensation = masteringChain.getHeadroomReduction();
+        autoGain += headroomCompensation;
+
+        // Clamp to safe range
+        autoGain = juce::jlimit(-12.0f, 18.0f, autoGain);
+
         masteringChain.getLimiter().setAutoGainValue(autoGain);
         masteringChain.getLimiter().setAutoGainEnabled(true);
     }

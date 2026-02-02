@@ -256,9 +256,12 @@ public:
 
     void setAutoGainValue(float gainDB)
     {
-        // Cap auto-gain at +6dB to prevent limiter from working too hard
-        // More than +6dB of makeup gain typically causes audible artifacts
-        autoGainDB = juce::jlimit(-12.0f, 6.0f, gainDB);
+        // Allow up to +18dB of auto-gain to accommodate:
+        // - Quiet input tracks that need significant boost
+        // - Headroom reduction compensation (up to +6dB)
+        // - Target LUFS requirements
+        // The limiter will catch any peaks that exceed ceiling
+        autoGainDB = juce::jlimit(-12.0f, 18.0f, gainDB);
         autoGainLinear = DSPUtils::decibelsToLinear(autoGainDB);
     }
 

@@ -33,8 +33,9 @@ public:
         float lowMidCrossover = 200.0f;
         float midHighCrossover = 3000.0f;
 
-        std::array<float, 3> threshold = { -20.0f, -18.0f, -16.0f };
-        std::array<float, 3> ratio = { 3.0f, 4.0f, 4.0f };
+        // Gentler defaults to preserve verse-to-chorus dynamics
+        std::array<float, 3> threshold = { -10.0f, -8.0f, -6.0f };
+        std::array<float, 3> ratio = { 2.0f, 2.0f, 2.0f };
         std::array<float, 3> attack = { 20.0f, 10.0f, 5.0f };
         std::array<float, 3> release = { 200.0f, 150.0f, 100.0f };
         std::array<float, 3> makeup = { 0.0f, 0.0f, 0.0f };
@@ -199,21 +200,33 @@ private:
         float compressionAmount = juce::jmap(avgCrest, 6.0f, 18.0f, 0.3f, 1.0f);
         compressionAmount = juce::jlimit(0.3f, 1.0f, compressionAmount);
 
-        // Low band - slower attack to preserve punch
-        comp.threshold[0] = -20.0f + (1.0f - compressionAmount) * 10.0f;
-        comp.ratio[0] = 2.0f + compressionAmount * 2.0f;
+        // ===== GENTLER COMPRESSION TO PRESERVE MACRODYNAMICS =====
+        // Previous thresholds were too low (-20 to -10 dB), causing
+        // loud sections (chorus) to be compressed more than quiet sections (verse),
+        // which inverted the dynamics. Now using higher thresholds so compression
+        // only catches the loudest peaks, preserving verse-to-chorus dynamics.
+
+        // Low band - high threshold, gentle ratio, slow attack for punch
+        // Threshold: -12dB to -6dB (was -20dB to -10dB)
+        // Ratio: 1.5:1 to 2.5:1 (was 2:1 to 4:1)
+        comp.threshold[0] = -12.0f + (1.0f - compressionAmount) * 6.0f;
+        comp.ratio[0] = 1.5f + compressionAmount * 1.0f;
         comp.attack[0] = 30.0f - compressionAmount * 10.0f;
         comp.release[0] = 200.0f;
 
         // Mid band - moderate settings
-        comp.threshold[1] = -18.0f + (1.0f - compressionAmount) * 8.0f;
-        comp.ratio[1] = 3.0f + compressionAmount * 2.0f;
+        // Threshold: -10dB to -6dB (was -18dB to -10dB)
+        // Ratio: 1.5:1 to 2.5:1 (was 3:1 to 5:1)
+        comp.threshold[1] = -10.0f + (1.0f - compressionAmount) * 4.0f;
+        comp.ratio[1] = 1.5f + compressionAmount * 1.0f;
         comp.attack[1] = 15.0f - compressionAmount * 5.0f;
         comp.release[1] = 150.0f;
 
-        // High band - faster attack for control
-        comp.threshold[2] = -16.0f + (1.0f - compressionAmount) * 6.0f;
-        comp.ratio[2] = 3.0f + compressionAmount * 2.0f;
+        // High band - catches harshness, still gentle
+        // Threshold: -8dB to -4dB (was -16dB to -10dB)
+        // Ratio: 1.5:1 to 2.5:1 (was 3:1 to 5:1)
+        comp.threshold[2] = -8.0f + (1.0f - compressionAmount) * 4.0f;
+        comp.ratio[2] = 1.5f + compressionAmount * 1.0f;
         comp.attack[2] = 5.0f;
         comp.release[2] = 100.0f;
 

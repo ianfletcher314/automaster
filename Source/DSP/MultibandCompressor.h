@@ -242,9 +242,9 @@ private:
     DSPUtils::LinkwitzRileyCrossover crossover1[2];  // Low-Mid split
     DSPUtils::LinkwitzRileyCrossover crossover2[2];  // Mid-High split
 
-    // Per-band compressor settings
-    std::array<float, NUM_BANDS> bandThreshold = { -20.0f, -18.0f, -16.0f };
-    std::array<float, NUM_BANDS> bandRatio = { 3.0f, 4.0f, 4.0f };
+    // Per-band compressor settings (gentler defaults to preserve macrodynamics)
+    std::array<float, NUM_BANDS> bandThreshold = { -10.0f, -8.0f, -6.0f };
+    std::array<float, NUM_BANDS> bandRatio = { 2.0f, 2.0f, 2.0f };
     std::array<float, NUM_BANDS> bandAttack = { 20.0f, 10.0f, 5.0f };
     std::array<float, NUM_BANDS> bandRelease = { 200.0f, 150.0f, 100.0f };
     std::array<float, NUM_BANDS> bandMakeup = { 0.0f, 0.0f, 0.0f };
