@@ -1,6 +1,85 @@
-# Limiter Research Report: Why Automaster Won't Clip Anymore
+# Limiter Research Report: Ongoing Investigation
 
-## Executive Summary
+## Status: 🔴 STILL INVESTIGATING
+
+The limiter is still causing clipping. This document tracks our research, findings, and remaining questions.
+
+---
+
+## Current Problem
+
+**Symptom:** Audio clips ONLY when the limiter is engaged. No clipping before the limiter.
+
+**Key Questions:**
+1. Why would the limiter cause clipping when its entire job is to PREVENT clipping?
+2. Is it actual digital clipping (samples > 1.0) or distortion from aggressive limiting?
+3. Is the true peak detection working correctly?
+4. Is the gain reduction being applied at the right time (lookahead timing)?
+5. Is the soft clipper introducing its own artifacts?
+
+---
+
+## What We've Tried So Far
+
+### Attempt 1: Added 4x Oversampling for True Peak Detection
+- **Theory:** Standard peak detection misses inter-sample peaks
+- **Implementation:** Using JUCE dsp::Oversampling with FIR equiripple filters
+- **Result:** Still clipping
+
+### Attempt 2: Replaced Hard Clip with Soft Clip (tanh)
+- **Theory:** Hard `std::max/min` causes harsh digital clipping
+- **Implementation:** Tanh-based soft clipper
+- **Result:** Still clipping
+
+### Attempt 3: Added Program-Dependent Release
+- **Theory:** Fixed release causes pumping or lets transients through
+- **Implementation:** Dual envelope (fast 30ms + slow user-adjustable)
+- **Result:** Still clipping
+
+### Attempt 4: Fixed Auto-Gain Anticipation
+- **Theory:** Limiter calculated reduction on input, but auto-gain was added after
+- **Implementation:** Now multiplies peak by autoGainLinear before calculating reduction
+- **Result:** Still clipping (needs verification)
+
+---
+
+## Remaining Hypotheses
+
+### Hypothesis A: Soft Clipper Has Discontinuity
+The current soft clipper has a hard threshold at normalized = 1.0:
+```cpp
+if (std::abs(normalized) <= 1.0f)
+    return input;  // Pass through unchanged
+```
+This creates a discontinuity - below 1.0 is linear, above 1.0 jumps to soft clip curve. This could cause audible artifacts.
+
+**Fix:** Start soft clipping at 0.8 or 0.9 of ceiling, not at 1.0.
+
+### Hypothesis B: Oversampling Peak Detection Timing Issue
+The oversampled peaks are detected for the current input, but applied to the delayed signal. If there's a timing mismatch, peaks could slip through.
+
+**Fix:** Verify the lookahead buffer indexing is correct.
+
+### Hypothesis C: Envelope Not Fast Enough
+Even with "instant" attack, the envelope might not respond fast enough to catch very fast transients.
+
+**Fix:** Ensure attack is truly instant (no smoothing on attack).
+
+### Hypothesis D: Auto-Gain is Too Aggressive
+If auto-gain is adding +10dB or more, the limiter has to work extremely hard. This could cause audible artifacts even if no actual clipping occurs.
+
+**Fix:** Cap auto-gain at a reasonable value (e.g., +6dB max).
+
+### Hypothesis E: The "Clipping" is Actually Distortion
+The user might be hearing harmonic distortion from the limiter working too hard, not actual digital clipping.
+
+**Test:** Check if output samples actually exceed 1.0, or if it's just harsh-sounding.
+
+---
+
+## Technical Deep Dive
+
+## Executive Summary (Original Research)
 
 The Automaster limiter was causing harsh digital clipping. After extensive research into professional limiting techniques, we identified and fixed multiple issues. The limiter now uses:
 
