@@ -105,6 +105,7 @@ private:
     void setupMeterSection();
     void showModulePanel(ProcessingChainView::Module module);
     void updateMeters();
+    void showTargetLUFSPopup();  // Show popup to adjust target LUFS
 
     // Layout helpers - tabbed view (legacy)
     void layoutCurrentModule(juce::Rectangle<int> area);
@@ -139,6 +140,11 @@ private:
     // Styled button LookAndFeels
     std::unique_ptr<StyledButtonLookAndFeel> autoMasterButtonLAF;  // Cyan/teal
     std::unique_ptr<StyledButtonLookAndFeel> analyzeButtonLAF;     // Yellow
+
+    // Header button LookAndFeels (consistent styling)
+    std::unique_ptr<HeaderButtonLookAndFeel> headerPrimaryLAF;
+    std::unique_ptr<HeaderButtonLookAndFeel> headerSecondaryLAF;
+    std::unique_ptr<DropdownButtonLookAndFeel> dropdownLAF;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AutomasterAudioProcessorEditor)
 };

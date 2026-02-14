@@ -215,6 +215,9 @@ AutomasterAudioProcessorEditor::~AutomasterAudioProcessorEditor()
     // Clear custom LookAndFeels before components are destroyed
     autoMasterButton.setLookAndFeel(nullptr);
     analyzeButton.setLookAndFeel(nullptr);
+    loadRefButton.setLookAndFeel(nullptr);
+    settingsButton.setLookAndFeel(nullptr);
+    profileCombo.setLookAndFeel(nullptr);
 
     // EQ section
     lowShelfFreqKnob.getSlider().setLookAndFeel(nullptr);
@@ -303,11 +306,17 @@ bool AutomasterAudioProcessorEditor::keyPressed(const juce::KeyPress& key, juce:
 
 void AutomasterAudioProcessorEditor::setupTopBar()
 {
+    // Logo - bigger and bolder
     titleLabel.setText("AUTOMASTER", juce::dontSendNotification);
-    titleLabel.setFont(juce::FontOptions(28.0f).withStyle("Bold"));
-    titleLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    titleLabel.setFont(juce::FontOptions(24.0f).withStyle("Bold"));
+    titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xFF00D4AA));  // Cyan accent
     addAndMakeVisible(titleLabel);
 
+    // Create consistent header button LAFs
+    headerPrimaryLAF = std::make_unique<HeaderButtonLookAndFeel>(true);   // Primary (cyan)
+    headerSecondaryLAF = std::make_unique<HeaderButtonLookAndFeel>(false); // Secondary (dark)
+
+    // ABCD preset buttons
     const char* labels[] = { "A", "B", "C", "D" };
     for (int i = 0; i < 4; ++i)
     {
@@ -327,12 +336,18 @@ void AutomasterAudioProcessorEditor::setupTopBar()
     }
     abcdButtons[0].setToggleState(true, juce::dontSendNotification);
 
+    // Settings button with consistent style
     settingsButton.setButtonText("Settings");
+    settingsButton.setLookAndFeel(headerSecondaryLAF.get());
     addAndMakeVisible(settingsButton);
 }
 
 void AutomasterAudioProcessorEditor::setupReferenceSection()
 {
+    // Style the genre dropdown as a button
+    dropdownLAF = std::make_unique<DropdownButtonLookAndFeel>();
+    profileCombo.setLookAndFeel(dropdownLAF.get());
+
     profileCombo.addItem("Genre: Auto", 1);
     profileCombo.addItem("Pop", 10);
     profileCombo.addItem("Rock", 11);
@@ -353,7 +368,8 @@ void AutomasterAudioProcessorEditor::setupReferenceSection()
     };
     addAndMakeVisible(profileCombo);
 
-    loadRefButton.setButtonText("Load Ref");
+    loadRefButton.setButtonText("LOAD REF");
+    loadRefButton.setLookAndFeel(headerSecondaryLAF.get());
     loadRefButton.onClick = [this]()
     {
         fileChooser = std::make_unique<juce::FileChooser>(
@@ -387,16 +403,15 @@ void AutomasterAudioProcessorEditor::setupModeSection()
 {
     addAndMakeVisible(targetLUFSKnob);
 
+    // AUTO MASTER - primary action button (uses header primary style)
     autoMasterButton.setButtonText("AUTO MASTER");
-    autoMasterButtonLAF = std::make_unique<StyledButtonLookAndFeel>(juce::Colour(0xFF00BCD4));  // Cyan/teal
-    autoMasterButton.setLookAndFeel(autoMasterButtonLAF.get());
+    autoMasterButton.setLookAndFeel(headerPrimaryLAF.get());
     autoMasterButton.onClick = [this]() { proc.triggerAutoMaster(); };
     addAndMakeVisible(autoMasterButton);
 
-    // Analyze button - styled yellow button
+    // Analyze button - secondary style (consistent with other buttons)
     analyzeButton.setButtonText("ANALYZE");
-    analyzeButtonLAF = std::make_unique<StyledButtonLookAndFeel>(juce::Colour(0xFFF59E0B));  // Yellow/amber
-    analyzeButton.setLookAndFeel(analyzeButtonLAF.get());
+    analyzeButton.setLookAndFeel(headerSecondaryLAF.get());
     analyzeButton.setClickingTogglesState(true);
     analyzeButton.onClick = [this]()
     {
@@ -413,10 +428,10 @@ void AutomasterAudioProcessorEditor::setupModeSection()
     };
     addAndMakeVisible(analyzeButton);
 
-    // Progress bar for analysis
+    // Progress bar for analysis - wider and more visible
     analysisProgressBar = std::make_unique<juce::ProgressBar>(analysisProgress);
-    analysisProgressBar->setColour(juce::ProgressBar::backgroundColourId, juce::Colour(0xFF1a1a1a));
-    analysisProgressBar->setColour(juce::ProgressBar::foregroundColourId, juce::Colour(0xFFFF6B35));
+    analysisProgressBar->setColour(juce::ProgressBar::backgroundColourId, juce::Colour(0xFF2a2a2a));
+    analysisProgressBar->setColour(juce::ProgressBar::foregroundColourId, juce::Colour(0xFF00D4AA));
     addAndMakeVisible(*analysisProgressBar);
 }
 
@@ -489,6 +504,9 @@ void AutomasterAudioProcessorEditor::setupMeterSection()
     addAndMakeVisible(outputMeterL);
     addAndMakeVisible(outputMeterR);
     addAndMakeVisible(lufsMeter);
+
+    // Make LUFS meter clickable to show target popup
+    lufsMeter.onClick = [this]() { showTargetLUFSPopup(); };
 
     inputLabel.setText("IN", juce::dontSendNotification);
     inputLabel.setJustificationType(juce::Justification::centred);
@@ -586,33 +604,53 @@ void AutomasterAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds();
 
-    // Header bar - compact layout
-    auto header = bounds.removeFromTop(kHeaderHeight).reduced(kPadding, 5);
+    // Header bar - redesigned layout with consistent spacing
+    auto header = bounds.removeFromTop(kHeaderHeight).reduced(kPadding, 6);
+    const int btnHeight = 28;
+    const int btnGap = 8;
+    const int groupGap = 16;
 
-    // Right side first (so we know how much space is left)
-    settingsButton.setBounds(header.removeFromRight(45).reduced(0, 6));
-    header.removeFromRight(4);
-    auto abcdArea = header.removeFromRight(96);
+    // === RIGHT SIDE (state management) ===
+    // Settings button
+    settingsButton.setBounds(header.removeFromRight(55).reduced(0, (header.getHeight() - btnHeight) / 2));
+    header.removeFromRight(btnGap);
+
+    // ABCD preset buttons
+    auto abcdArea = header.removeFromRight(100);
+    int abcdY = (header.getHeight() - btnHeight) / 2;
     for (int i = 0; i < 4; ++i)
-        abcdButtons[i].setBounds(abcdArea.removeFromLeft(24).reduced(1, 6));
-    header.removeFromRight(8);
+        abcdButtons[i].setBounds(abcdArea.removeFromLeft(25).withHeight(btnHeight).withY(header.getY() + abcdY));
+    header.removeFromRight(btnGap);
 
-    // Left side
-    titleLabel.setBounds(header.removeFromLeft(170));
-    header.removeFromLeft(8);
-    analyzeButton.setBounds(header.removeFromLeft(65).reduced(0, 8));
-    header.removeFromLeft(4);
-    analysisProgressBar->setBounds(header.removeFromLeft(45).reduced(0, 12));
-    header.removeFromLeft(8);
-    autoMasterButton.setBounds(header.removeFromLeft(115).reduced(0, 4));
+    // AUTO MASTER button (primary action, moved to right side)
+    autoMasterButton.setBounds(header.removeFromRight(100).reduced(0, (header.getHeight() - btnHeight) / 2));
+    header.removeFromRight(groupGap);
+
+    // Target LUFS knob is now hidden - accessed via LUFS meter popup
+    targetLUFSKnob.setVisible(false);
+
+    // === LEFT SIDE (logo + workflow) ===
+    // Logo
+    titleLabel.setBounds(header.removeFromLeft(140));
+    header.removeFromLeft(groupGap);
+
+    // Load Ref button (step 1: load reference)
+    loadRefButton.setBounds(header.removeFromLeft(70).reduced(0, (header.getHeight() - btnHeight) / 2));
+    header.removeFromLeft(btnGap);
+
+    // Genre dropdown (step 2: select genre)
+    profileCombo.setBounds(header.removeFromLeft(100).reduced(0, (header.getHeight() - btnHeight) / 2));
+    header.removeFromLeft(btnGap);
+
+    // Analyze button + progress (step 3: analyze)
+    analyzeButton.setBounds(header.removeFromLeft(70).reduced(0, (header.getHeight() - btnHeight) / 2));
     header.removeFromLeft(6);
-    targetLUFSKnob.setBounds(header.removeFromLeft(42));
-    header.removeFromLeft(4);
-    profileCombo.setBounds(header.removeFromLeft(80).reduced(0, 8));
-    header.removeFromLeft(4);
-    loadRefButton.setBounds(header.removeFromLeft(55).reduced(0, 8));
-    header.removeFromLeft(4);
-    matchIndicator.setBounds(header.removeFromLeft(60).reduced(0, 8));
+    // Progress bar - same height as buttons (28px tall, 100px wide)
+    analysisProgressBar->setBounds(header.removeFromLeft(100).reduced(0, (header.getHeight() - btnHeight) / 2));
+    header.removeFromLeft(btnGap);
+
+    // Match indicator (only visible when reference loaded)
+    matchIndicator.setBounds(header.removeFromLeft(50).reduced(0, (header.getHeight() - btnHeight) / 2));
     matchIndicator.setVisible(proc.hasReference());
 
     bounds = bounds.reduced(kPadding, 0);
@@ -1510,6 +1548,36 @@ void AutomasterAudioProcessorEditor::filesDropped(const juce::StringArray& files
             }
         }
     }
+}
+
+void AutomasterAudioProcessorEditor::showTargetLUFSPopup()
+{
+    // Create a component to hold the target LUFS knob
+    auto* popupContent = new juce::Component();
+    popupContent->setSize(120, 100);
+
+    // Add a label
+    auto* label = new juce::Label();
+    label->setText("Target LUFS", juce::dontSendNotification);
+    label->setFont(juce::FontOptions(12.0f).withStyle("Bold"));
+    label->setColour(juce::Label::textColourId, juce::Colour(0xFFcccccc));
+    label->setJustificationType(juce::Justification::centred);
+    label->setBounds(0, 5, 120, 18);
+    popupContent->addAndMakeVisible(label);
+
+    // Make the target knob visible and add to popup
+    targetLUFSKnob.setVisible(true);
+    targetLUFSKnob.setBounds(38, 25, 44, 56);
+    popupContent->addAndMakeVisible(targetLUFSKnob);
+
+    // Show as callout
+    auto& callout = juce::CallOutBox::launchAsynchronously(
+        std::unique_ptr<juce::Component>(popupContent),
+        lufsMeter.getScreenBounds(),
+        nullptr);
+
+    // When callout closes, hide the knob again
+    callout.setDismissalMouseClicksAreAlwaysConsumed(true);
 }
 
 void AutomasterAudioProcessorEditor::timerCallback()

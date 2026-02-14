@@ -582,6 +582,134 @@ private:
     bool isMouseOver = false;
 };
 
+// Styled dropdown that looks like a button
+class DropdownButtonLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    void drawComboBox(juce::Graphics& g, int width, int height, bool isButtonDown,
+                      int, int, int, int, juce::ComboBox&) override
+    {
+        auto bounds = juce::Rectangle<float>(0, 0, (float)width, (float)height).reduced(1.0f);
+        auto cornerSize = bounds.getHeight() / 2.0f;  // Pill shape
+
+        // Background - same as secondary header buttons
+        juce::Colour bgColor = juce::Colour(0xFF2a2a2a);
+        if (isButtonDown)
+            bgColor = bgColor.darker(0.2f);
+
+        g.setColour(bgColor);
+        g.fillRoundedRectangle(bounds, cornerSize);
+
+        // Border
+        g.setColour(juce::Colour(0xFF444444));
+        g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
+
+        // Dropdown arrow on right side
+        auto arrowZone = bounds.removeFromRight(bounds.getHeight()).reduced(8.0f);
+        juce::Path arrow;
+        arrow.addTriangle(arrowZone.getX(), arrowZone.getCentreY() - 3.0f,
+                          arrowZone.getRight(), arrowZone.getCentreY() - 3.0f,
+                          arrowZone.getCentreX(), arrowZone.getCentreY() + 3.0f);
+        g.setColour(juce::Colour(0xFFaaaaaa));
+        g.fillPath(arrow);
+    }
+
+    void drawComboBoxTextWhenNothingSelected(juce::Graphics& g, juce::ComboBox& box,
+                                              juce::Label& label) override
+    {
+        g.setColour(juce::Colour(0xFF888888));
+        g.setFont(juce::FontOptions(11.0f).withStyle("Bold"));
+        auto textBounds = label.getBounds().reduced(8, 0);
+        g.drawText(box.getTextWhenNothingSelected(), textBounds, juce::Justification::centredLeft);
+    }
+
+    juce::Font getComboBoxFont(juce::ComboBox&) override
+    {
+        return juce::Font(juce::FontOptions(11.0f).withStyle("Bold"));
+    }
+
+    void positionComboBoxText(juce::ComboBox& box, juce::Label& label) override
+    {
+        label.setBounds(8, 0, box.getWidth() - 28, box.getHeight());
+        label.setFont(getComboBoxFont(box));
+        label.setColour(juce::Label::textColourId, juce::Colour(0xFFcccccc));
+    }
+
+    juce::PopupMenu::Options getOptionsForComboBoxPopupMenu(juce::ComboBox& box, juce::Label&) override
+    {
+        return juce::PopupMenu::Options()
+            .withTargetComponent(&box)
+            .withMinimumWidth(box.getWidth())
+            .withMaximumNumColumns(1);
+    }
+};
+
+// Consistent header button style - subtle, professional look
+class HeaderButtonLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    HeaderButtonLookAndFeel(bool isPrimary = false) : primary(isPrimary) {}
+
+    void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                              const juce::Colour&, bool isMouseOver, bool isButtonDown) override
+    {
+        auto bounds = button.getLocalBounds().toFloat().reduced(1.0f);
+        auto cornerSize = bounds.getHeight() / 2.0f;  // Pill shape
+
+        juce::Colour bgColor;
+        if (primary)
+        {
+            // Primary action button - matches AUTOMASTER logo color
+            bgColor = juce::Colour(0xFF00D4AA);
+            if (isButtonDown)
+                bgColor = bgColor.darker(0.2f);
+            else if (isMouseOver)
+                bgColor = bgColor.brighter(0.1f);
+
+            juce::ColourGradient gradient(
+                bgColor.brighter(0.15f), bounds.getX(), bounds.getY(),
+                bgColor.darker(0.1f), bounds.getX(), bounds.getBottom(), false);
+            g.setGradientFill(gradient);
+        }
+        else
+        {
+            // Secondary buttons - subtle dark with border
+            bgColor = juce::Colour(0xFF2a2a2a);
+            if (isButtonDown)
+                bgColor = bgColor.darker(0.2f);
+            else if (isMouseOver)
+                bgColor = bgColor.brighter(0.15f);
+            g.setColour(bgColor);
+        }
+
+        g.fillRoundedRectangle(bounds, cornerSize);
+
+        // Border
+        g.setColour(primary ? juce::Colours::white.withAlpha(0.2f) : juce::Colour(0xFF444444));
+        g.drawRoundedRectangle(bounds, cornerSize, 1.0f);
+    }
+
+    void drawButtonText(juce::Graphics& g, juce::TextButton& button,
+                        bool, bool) override
+    {
+        auto bounds = button.getLocalBounds();
+        g.setFont(juce::FontOptions(11.0f).withStyle("Bold"));
+
+        if (primary)
+        {
+            // Shadow for primary
+            g.setColour(juce::Colours::black.withAlpha(0.4f));
+            g.drawText(button.getButtonText(), bounds.translated(1, 1), juce::Justification::centred);
+        }
+
+        g.setColour(primary ? juce::Colours::white : juce::Colour(0xFFcccccc));
+        g.drawText(button.getButtonText(), bounds, juce::Justification::centred);
+    }
+
+private:
+    bool primary;
+};
+
 // Rainbow button LookAndFeel - sophisticated aurora/synthwave gradient
 // Styled button with a solid color (or gradient for rainbow effect)
 class StyledButtonLookAndFeel : public juce::LookAndFeel_V4
