@@ -176,6 +176,15 @@ public:
     LUFSMeter()
     {
         setOpaque(false);
+        setMouseCursor(juce::MouseCursor::PointingHandCursor);
+    }
+
+    std::function<void()> onClick;  // Called when meter is clicked
+
+    void mouseDown(const juce::MouseEvent&) override
+    {
+        if (onClick)
+            onClick();
     }
 
     void setLevels(float momentary, float shortTerm, float integrated)
